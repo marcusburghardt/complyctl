@@ -4,7 +4,14 @@
 %global base_url https://%{goipath}
 %global app_dir complytime
 %global gopath %{_builddir}/go
-%global debug_package %{nil}
+
+# debuginfo packages are recently causing errors in rawhide and needs more
+# investigation on the best approach to with vendored dependencies. So, it is
+# temporarily disabled in rawhide.
+%if 0%{?fedora} >= 43
+%undefine _debugsource_packages
+%undefine _debuginfo_subpackages
+%endif
 
 Name:           complyctl
 Version:        0.0.8
@@ -43,10 +50,10 @@ BUILD_DATE_GO=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 %set_build_flags
 
 # Align GIT_COMMIT and GIT_TAG with version for simplicity
-GO_LD_EXTRAFLAGS="-X %{goipath}/internal/version.version=%{version} \
-                  -X %{goipath}/internal/version.gitTreeState=clean \
-                  -X %{goipath}/internal/version.commit=%{version} \
-                  -X %{goipath}/internal/version.buildDate=${BUILD_DATE_GO}"
+GO_LDFLAGS="-X %{goipath}/internal/version.version=%{version} \
+            -X %{goipath}/internal/version.gitTreeState=clean \
+            -X %{goipath}/internal/version.commit=%{version} \
+            -X %{goipath}/internal/version.buildDate=${BUILD_DATE_GO}"
 
 # Adapt go env to RPM build environment
 export GO111MODULE=on
@@ -55,8 +62,9 @@ export GO111MODULE=on
 GO_BUILD_BINDIR=./bin
 mkdir -p ${GO_BUILD_BINDIR}
 
-# Not calling the macro for more control on go env variables
-go build -buildmode=pie -o ${GO_BUILD_BINDIR}/ -ldflags="${GO_LD_EXTRAFLAGS}" ./cmd/...
+for cmd in cmd/* ; do
+    %gobuild -o ${GO_BUILD_BINDIR}/$(basename $cmd) %{goipath}/$cmd
+done
 
 %install
 # Install complyctl directories
