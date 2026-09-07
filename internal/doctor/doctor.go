@@ -553,6 +553,10 @@ func CheckPolicyVersions(cfg *complytime.WorkspaceConfig, dataDir string, versio
 // resolvePinnedFallback attempts to resolve a pinned version when the latest
 // tag is unavailable. Returns a pass result if the pinned version resolves,
 // or a warn result with a user-friendly diagnosis.
+//
+// When latestErr is a network error (not ErrVersionNotFound), the pinned
+// resolution is skipped because the registry is unreachable — attempting
+// ResolveVersion would trigger another timeout against the same host.
 func resolvePinnedFallback(
 	resolver VersionResolver,
 	ref complytime.PolicyRef,
@@ -560,7 +564,8 @@ func resolvePinnedFallback(
 	latestErr error,
 ) CheckResult {
 	pinnedVersion := ref.VersionString()
-	if pinnedVersion != "" {
+	isRegistryReachable := errors.Is(latestErr, registry.ErrVersionNotFound)
+	if pinnedVersion != "" && isRegistryReachable {
 		_, pinnedErr := resolver.ResolveVersion(ref.Registry, ref.Repository, pinnedVersion)
 		if pinnedErr == nil {
 			return CheckResult{
