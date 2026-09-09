@@ -27,6 +27,10 @@ type mockVersionResolver struct {
 	unreachable    map[string]bool   // registry -> true
 	errOnResolve   map[string]error  // "registry|repo" -> error
 	latestMissing  map[string]bool   // registry -> true (reachable but no latest tag)
+
+	// resolveVersionCalls counts calls to ResolveVersion for verifying
+	// that network-unreachable registries are not contacted redundantly.
+	resolveVersionCalls int
 }
 
 func newMockVersionResolver() *mockVersionResolver {
@@ -57,6 +61,7 @@ func (m *mockVersionResolver) ResolveLatestVersion(reg, repository string) (stri
 }
 
 func (m *mockVersionResolver) ResolveVersion(reg, repository, version string) (string, error) {
+	m.resolveVersionCalls++
 	if m.unreachable[reg] {
 		return "", fmt.Errorf("connection refused")
 	}
@@ -439,6 +444,73 @@ func TestCheckPolicyVersions_PinnedNetworkFailure_BothFail(t *testing.T) {
 	assert.Contains(t, results[0].Message, "registry unreachable")
 	assert.Equal(t, "policy/cis", results[1].Name)
 	assert.Contains(t, results[1].Message, "registry unreachable")
+}
+
+func TestCheckPolicyVersions_PinnedNetworkFailure_SkipsResolveVersion(t *testing.T) {
+	// When a registry is unreachable (network error, not 404),
+	// resolvePinnedFallback must NOT call ResolveVersion because the
+	// registry cannot be contacted — doing so wastes a timeout per
+	// pinned policy. Only ResolveLatestVersion should be called (once,
+	// before the error is cached for subsequent policies).
+	tmpDir := t.TempDir()
+
+	state := &cache.State{Policies: map[string]cache.PolicyState{
+		"policies/alpha": {Version: "v1.0.0"},
+		"policies/beta":  {Version: "v2.0.0"},
+		"policies/gamma": {Version: "v3.0.0"},
+	}}
+	require.NoError(t, cache.SaveState(state, tmpDir))
+
+	cfg := &complytime.WorkspaceConfig{
+		Policies: []complytime.PolicyEntry{
+			{URL: "down.io/policies/alpha:v1.0.0"},
+			{URL: "down.io/policies/beta:v2.0.0", ID: "beta"},
+			{URL: "down.io/policies/gamma:v3.0.0", ID: "gamma"},
+		},
+	}
+
+	vr := newMockVersionResolver()
+	vr.unreachable["down.io"] = true
+
+	results := CheckPolicyVersions(cfg, tmpDir, vr)
+	require.Len(t, results, 3)
+	for _, r := range results {
+		assert.Equal(t, StatusWarn, r.Status)
+		assert.Contains(t, r.Message, "registry unreachable")
+	}
+	// ResolveVersion must never be called for an unreachable registry.
+	assert.Equal(t, 0, vr.resolveVersionCalls,
+		"ResolveVersion should not be called when registry is unreachable")
+}
+
+func TestCheckPolicyVersions_LatestMissing_PinnedStillResolved(t *testing.T) {
+	// When the error is a 404 (ErrVersionNotFound), the registry IS
+	// reachable — resolvePinnedFallback should still attempt
+	// ResolveVersion for pinned policies.
+	tmpDir := t.TempDir()
+
+	state := &cache.State{Policies: map[string]cache.PolicyState{
+		"policies/nist": {Version: "v1.0.0"},
+	}}
+	require.NoError(t, cache.SaveState(state, tmpDir))
+
+	cfg := &complytime.WorkspaceConfig{
+		Policies: []complytime.PolicyEntry{
+			{URL: "reg.io/policies/nist:v1.0.0"},
+		},
+	}
+
+	vr := newMockVersionResolver()
+	vr.latestMissing["reg.io"] = true
+	vr.pinnedVersions["reg.io|policies/nist|v1.0.0"] = "v1.0.0"
+
+	results := CheckPolicyVersions(cfg, tmpDir, vr)
+	require.Len(t, results, 1)
+	assert.Equal(t, StatusPass, results[0].Status)
+	assert.Contains(t, results[0].Message, "pinned")
+	// ResolveVersion should have been called because the registry is reachable.
+	assert.Equal(t, 1, vr.resolveVersionCalls,
+		"ResolveVersion should be called when registry is reachable (404)")
 }
 
 func TestCheckPolicyVersions_BadCacheState(t *testing.T) {
