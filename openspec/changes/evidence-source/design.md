@@ -95,6 +95,36 @@ zero-value struct with all empty strings. This matches proto3
 semantics where an absent sub-message is nil. The evaluator
 checks `if ev.Source != nil` before mapping.
 
+Note: the gemara `Evidence.Source` is a value type
+(`EvidenceMapping`, not `*EvidenceMapping`) with `omitempty`
+JSON/YAML tags. When the internal `*EvidenceSource` is nil,
+the evaluator does not set the gemara field, leaving it at
+zero value. `goccy/go-yaml` (used for default YAML output)
+recursively checks struct fields and omits the zero-value
+struct. `encoding/json` (used for `--log-format json`) does
+NOT omit zero-value structs, so JSON output may include an
+empty `"source": {}` -- this is a pre-existing serialization
+characteristic of go-gemara's value-type design.
+
+### D5: Passthrough for coordinate/entry_id exclusivity
+
+**Decision**: complyctl passes `EvidenceMapping` fields through
+without validating mutual exclusivity between `coordinate` and
+`entry_id`.
+
+**Rationale**: The Gemara schema documents `coordinate` and
+`entry_id` as mutually exclusive ("Do not set if entry-id is
+set" / "Do not set if coordinate is set"). However, complyctl
+is a transport layer -- enforcing schema constraints is the
+responsibility of providers (at write time) and the Gemara CUE
+schema validator (at validation time). Adding validation in the
+transport would couple complyctl to Gemara schema evolution.
+
+Note: the `EvidenceMapping.Digest` field uses the format
+`algorithm:hex` (e.g., `sha256:abc123...`). complyctl does not
+validate this format -- it is passed through as an opaque
+string. Test fixtures should use realistic digest values.
+
 ### D4: Remove stale ADR 0023 reference
 
 **Decision**: Remove the "ADR 0023" comment from `plugin.proto`
