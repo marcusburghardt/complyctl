@@ -2,14 +2,11 @@
 description: "Technical documentation specialist — owns READMEs, specs, CLI help, and API docs."
 mode: subagent
 temperature: 0.1
-tools:
-  read: true
-  write: true
-  edit: true
-  bash: false
-  webfetch: false
+permission:
+  bash: deny
+  webfetch: deny
 ---
-<!-- scaffolded by uf vdev -->
+<!-- scaffolded by uf v0.17.0 -->
 
 # Role: The Scribe
 

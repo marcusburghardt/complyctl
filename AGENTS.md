@@ -225,7 +225,7 @@ These rules are non-negotiable. Violations are CRITICAL severity.
   Review: fixes only. Violation = process error, stop immediately.
 - **CI parity**: MUST replicate CI checks locally before marking
   tasks complete. Derive commands from `.github/workflows/`.
-- **Review council**: MUST run `/review-council` before PR
+- **Review council**: MUST run `/uf.review-council` before PR
   submission. Resolve all REQUEST CHANGES. No code changes
   between APPROVE and PR. Exempt: constitution amendments,
   docs-only, emergency hotfixes.
@@ -236,18 +236,15 @@ These rules are non-negotiable. Violations are CRITICAL severity.
   entries, `AGENTS.md` for structural updates (project
   structure, conventions, build commands), `README.md` for
   description changes.
-- **Website gate**: MUST file `unbound-force/website` issue
-  for user-facing changes before PR merge. Exempt: internal
-  refactoring, test-only, CI-only, spec artifacts.
 - **Zero-waste**: No orphaned specs, unused standards, or
   aspirational documents that do not map to actionable work.
 
 ### PR Review Commands
 
-| Command           | When             | Scope                     |
-|-------------------|------------------|---------------------------|
-| `/review-council` | Pre-PR (local)   | 5+ Divisor agents         |
-| `/review-pr [N]`  | Post-PR (GitHub) | Single agent, CI analysis |
+| Command              | When             | Scope                     |
+|----------------------|------------------|---------------------------|
+| `/uf.review-council` | Pre-PR (local)   | 5+ Divisor agents         |
+| `/uf.review-pr [N]`  | Post-PR (GitHub) | Single agent, CI analysis |
 
 ## Specification Workflow
 

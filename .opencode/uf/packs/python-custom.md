@@ -1,15 +1,15 @@
 ---
-pack_id: default-custom
-language: Any
+pack_id: python-custom
+language: Python
 version: 1.0.0
 ---
 <!-- scaffolded by uf v0.17.0 -->
 
-# Custom Rules: Default
+# Custom Rules: Python
 
-Project-specific conventions that extend the canonical
-default convention pack. Rules in this file are loaded alongside
-`default.md` by Cobalt-Crush (during implementation) and
+Project-specific Python conventions that extend the canonical
+Python convention pack. Rules in this file are loaded alongside
+`python.md` by Cobalt-Crush (during implementation) and
 all Divisor persona agents (during review).
 
 Use the `CR-NNN` prefix for all custom rules. Use `[MUST]`,
