@@ -33,12 +33,22 @@ All four boundaries need the `source` field added.
 
 **Non-Goals:**
 
-- OSCAL output evidence support (separate concern, no upstream
-  OSCAL mapping for Gemara evidence exists yet)
+- OSCAL and SARIF evidence rendering -- both are deferred to
+  upstream go-gemara. SARIF output already delegates to
+  `gemaraconv.ToSARIF()` and will gain evidence support
+  automatically once [go-gemara#127][go-gemara-127] lands.
+  The local OSCAL formatter (`internal/output/oscal.go`) has
+  an existing `FIXME(jpower432)` flagging migration to
+  `gemaraconv`; once that migration happens and go-gemara
+  adds `relevant_evidence` mapping, OSCAL evidence flows
+  through with no further complyctl changes. Tracked in a
+  separate complyctl issue.
 - `Payload` type widening from `bytes` to `any` (breaking proto
   change, not needed for source provenance)
 - Provider-side implementation in complytime-providers (tracked
   via separate issue)
+
+[go-gemara-127]: https://github.com/gemaraproj/go-gemara/issues/127
 
 ## Decisions
 
