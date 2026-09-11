@@ -87,7 +87,7 @@ func (o *initOptions) run() error {
 // Covers policies, complypacks, targets, variables, and verification
 // so users can discover these features without consulting external docs.
 const emptyConfigTemplate = `# complytime.yaml - workspace configuration
-# See: docs/QUICK_START.md or man complyctl (CONFIGURATION section)
+# See: docs/QUICK_START.md, man complyctl, or complyctl init --help
 #
 # policies — OCI references to Gemara policy bundles (required, at least one)
 #   policies:
