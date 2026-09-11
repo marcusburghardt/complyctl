@@ -282,6 +282,7 @@ targets:
 | `verification.issuer` | OIDC issuer URL for keyless verification (requires `identity`) |
 | `verification.identity` | Expected SAN identity in the signing certificate |
 | `verification.key` | Path to PEM public key for keyed verification (mutually exclusive with `issuer`) |
+| `verification.trusted_root` | Path to `trusted_root.json` for private Sigstore instances (requires `issuer` and `identity`; mutually exclusive with `key`) |
 | `targets[].id` | Scan target identifier (must be unique) |
 | `targets[].policies` | List of effective policy IDs to evaluate against this target |
 | `targets[].variables` | Provider-specific key-value pairs; supports `${VAR}` env substitution |
