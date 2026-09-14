@@ -106,19 +106,16 @@ NOT omit zero-value structs, so JSON output may include an
 empty `"source": {}` -- this is a pre-existing serialization
 characteristic of go-gemara's value-type design.
 
-### D5: Passthrough for coordinate/entry_id exclusivity
+### D5: Passthrough for EvidenceMapping fields
 
-**Decision**: complyctl passes `EvidenceMapping` fields through
-without validating mutual exclusivity between `coordinate` and
-`entry_id`.
+**Decision**: complyctl passes all `EvidenceMapping` fields
+through without validation.
 
-**Rationale**: The Gemara schema documents `coordinate` and
-`entry_id` as mutually exclusive ("Do not set if entry-id is
-set" / "Do not set if coordinate is set"). However, complyctl
-is a transport layer -- enforcing schema constraints is the
-responsibility of providers (at write time) and the Gemara CUE
-schema validator (at validation time). Adding validation in the
-transport would couple complyctl to Gemara schema evolution.
+**Rationale**: complyctl is a transport layer -- enforcing
+schema constraints is the responsibility of providers (at
+write time) and the Gemara CUE schema validator (at validation
+time). Adding validation in the transport would couple
+complyctl to Gemara schema evolution.
 
 Note: the `EvidenceMapping.Digest` field uses the format
 `algorithm:hex` (e.g., `sha256:abc123...`). complyctl does not

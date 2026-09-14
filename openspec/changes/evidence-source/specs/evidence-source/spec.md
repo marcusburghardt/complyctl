@@ -64,8 +64,9 @@ provenance is present.
 - **WHEN** a provider sets both `Source.Coordinate` and
   `Source.EntryID` on an evidence entry
 - **THEN** complyctl MUST pass both values through without
-  modification (the Gemara schema documents these as mutually
-  exclusive, but enforcement is the provider's responsibility)
+  modification (complyctl is a transport layer; schema
+  validation is the provider's and CUE validator's
+  responsibility)
 
 ### Requirement: Evaluator maps source to gemara EvidenceMapping
 

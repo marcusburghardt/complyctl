@@ -149,14 +149,10 @@ message EvidenceMapping {
   string reference_id = 1;
 
   // Precise location within the referenced artifact (e.g. file path,
-  // API path, JSON path). Upstream Gemara schema documents this as
-  // mutually exclusive with entry_id; complyctl passes through without
-  // enforcing exclusivity.
+  // API path, JSON path)
   string coordinate = 2;
 
-  // Specific entry within a referenced Gemara artifact.
-  // Upstream Gemara schema documents this as mutually exclusive with
-  // coordinate; complyctl passes through without enforcing exclusivity.
+  // Specific entry within a referenced Gemara artifact
   string entry_id = 3;
 
   // Cryptographic hash of observed content; format: algorithm:hex
