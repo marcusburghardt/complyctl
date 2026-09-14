@@ -6,12 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/gemaraproj/go-gemara"
-
-	"github.com/complytime/complyctl/internal/complytime"
 )
 
 // HTTPSchemeRejected verifies the CLI rejects registry URLs with http://
@@ -27,11 +24,10 @@ func HTTPSchemeRejected(payload any) (gemara.Result, string, gemara.ConfidenceLe
     id: %s
 `, ctx.PolicyID, ctx.PolicyID)
 
-	configDir := filepath.Join(ctx.WorkDir, complytime.WorkspaceDir)
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return gemara.Unknown, "failed to create workspace dir: " + err.Error(), gemara.Undetermined
+	configPath, err := ensureConfigPath(ctx.WorkDir)
+	if err != nil {
+		return gemara.Unknown, err.Error(), gemara.Undetermined
 	}
-	configPath := filepath.Join(configDir, complytime.WorkspaceConfigFile)
 	if err := os.WriteFile(configPath, []byte(configYAML), 0600); err != nil {
 		return gemara.Unknown, "failed to write config: " + err.Error(), gemara.Undetermined
 	}
@@ -67,11 +63,10 @@ targets:
       - %s
 `, ctx.PolicyID, ctx.PolicyID, ctx.PolicyID)
 
-	configDir := filepath.Join(ctx.WorkDir, complytime.WorkspaceDir)
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return gemara.Unknown, "failed to create workspace dir: " + err.Error(), gemara.Undetermined
+	configPath, err := ensureConfigPath(ctx.WorkDir)
+	if err != nil {
+		return gemara.Unknown, err.Error(), gemara.Undetermined
 	}
-	configPath := filepath.Join(configDir, complytime.WorkspaceConfigFile)
 	if err := os.WriteFile(configPath, []byte(configYAML), 0600); err != nil {
 		return gemara.Unknown, "failed to write config: " + err.Error(), gemara.Undetermined
 	}

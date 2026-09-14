@@ -13,6 +13,16 @@ import (
 	"github.com/complytime/complyctl/internal/complytime"
 )
 
+// ensureConfigPath creates the workspace config directory under workDir
+// and returns the full path to the config file.
+func ensureConfigPath(workDir string) (string, error) {
+	configDir := filepath.Join(workDir, complytime.WorkspaceDir)
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create workspace dir: %w", err)
+	}
+	return filepath.Join(configDir, complytime.WorkspaceConfigFile), nil
+}
+
 // WriteConfig writes a standard complytime.yaml to the context's WorkDir.
 func WriteConfig(payload any) (gemara.Result, string, gemara.ConfidenceLevel) {
 	ctx, result, msg, conf := verifyContext(payload)
@@ -31,11 +41,10 @@ targets:
       env: test
 `, ctx.RegistryURL, ctx.PolicyID, ctx.PolicyID, ctx.PolicyID)
 
-	configDir := filepath.Join(ctx.WorkDir, complytime.WorkspaceDir)
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return gemara.Unknown, "failed to create workspace dir: " + err.Error(), gemara.Undetermined
+	path, err := ensureConfigPath(ctx.WorkDir)
+	if err != nil {
+		return gemara.Unknown, err.Error(), gemara.Undetermined
 	}
-	path := filepath.Join(configDir, complytime.WorkspaceConfigFile)
 	if err := os.WriteFile(path, []byte(configYAML), 0600); err != nil {
 		return gemara.Unknown, "failed to write config: " + err.Error(), gemara.Undetermined
 	}
