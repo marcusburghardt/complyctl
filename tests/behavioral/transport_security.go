@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/gemaraproj/go-gemara"
@@ -25,7 +24,11 @@ func HTTPSchemeRejected(payload any) (gemara.Result, string, gemara.ConfidenceLe
     id: %s
 `, ctx.PolicyID, ctx.PolicyID)
 
-	if err := os.WriteFile(filepath.Join(ctx.WorkDir, "complytime.yaml"), []byte(configYAML), 0600); err != nil {
+	configPath, err := ensureConfigPath(ctx.WorkDir)
+	if err != nil {
+		return gemara.Unknown, err.Error(), gemara.Undetermined
+	}
+	if err := os.WriteFile(configPath, []byte(configYAML), 0600); err != nil {
 		return gemara.Unknown, "failed to write config: " + err.Error(), gemara.Undetermined
 	}
 
@@ -60,7 +63,11 @@ targets:
       - %s
 `, ctx.PolicyID, ctx.PolicyID, ctx.PolicyID)
 
-	if err := os.WriteFile(filepath.Join(ctx.WorkDir, "complytime.yaml"), []byte(configYAML), 0600); err != nil {
+	configPath, err := ensureConfigPath(ctx.WorkDir)
+	if err != nil {
+		return gemara.Unknown, err.Error(), gemara.Undetermined
+	}
+	if err := os.WriteFile(configPath, []byte(configYAML), 0600); err != nil {
 		return gemara.Unknown, "failed to write config: " + err.Error(), gemara.Undetermined
 	}
 
