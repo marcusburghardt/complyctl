@@ -802,6 +802,24 @@ func resolveEvaluatorTargets(
 	return evaluatorTargets, resolveFailures, resolveResults
 }
 
+// variableValidation holds the computed resolution state from validating a
+// single provider's variables. Built by validateProviderVariables and passed
+// to buildVariableSummary (AP-001).
+type variableValidation struct {
+	Name               string
+	GlobalResolved     int
+	GlobalTotal        int
+	TargetResolved     int
+	TargetTotal        int
+	AllGlobalPresent   bool
+	AllTargetPresent   bool
+	UnmappedTargetVars bool
+	MissingGlobals     []string
+	MissingTargetVars  []string
+	Resolver           PolicyGraphResolver
+	ResolveFailures    int
+}
+
 // validateProviderVariables checks one provider's declared required variables
 // against the workspace config and returns a summary CheckResult with optional
 // verbose detail children.
@@ -854,13 +872,23 @@ func validateProviderVariables(
 	if unmappedTargetVars && (resolver == nil || resolveFailures > 0) {
 		allTargetPresent = false
 	}
-	name := fmt.Sprintf("variables/%s", ph.EvaluatorID)
 
-	summary := buildVariableSummary(
-		name, globalResolved, globalTotal, targetResolved, targetTotal,
-		allGlobalPresent, allTargetPresent, unmappedTargetVars,
-		missingGlobals, missingTargetVars, resolver, resolveFailures,
-	)
+	v := variableValidation{
+		Name:               fmt.Sprintf("variables/%s", ph.EvaluatorID),
+		GlobalResolved:     globalResolved,
+		GlobalTotal:        globalTotal,
+		TargetResolved:     targetResolved,
+		TargetTotal:        targetTotal,
+		AllGlobalPresent:   allGlobalPresent,
+		AllTargetPresent:   allTargetPresent,
+		UnmappedTargetVars: unmappedTargetVars,
+		MissingGlobals:     missingGlobals,
+		MissingTargetVars:  missingTargetVars,
+		Resolver:           resolver,
+		ResolveFailures:    resolveFailures,
+	}
+
+	summary := buildVariableSummary(v)
 
 	if verbose {
 		summary.Children = buildVariableDetails(
@@ -873,47 +901,40 @@ func validateProviderVariables(
 
 // buildVariableSummary constructs the pass/fail summary CheckResult for a
 // single provider's variable validation.
-func buildVariableSummary(
-	name string,
-	globalResolved, globalTotal, targetResolved, targetTotal int,
-	allGlobalPresent, allTargetPresent, unmappedTargetVars bool,
-	missingGlobals, missingTargetVars []string,
-	resolver PolicyGraphResolver,
-	resolveFailures int,
-) CheckResult {
-	if allGlobalPresent && allTargetPresent {
+func buildVariableSummary(v variableValidation) CheckResult {
+	if v.AllGlobalPresent && v.AllTargetPresent {
 		var msg string
-		if unmappedTargetVars {
+		if v.UnmappedTargetVars {
 			msg = fmt.Sprintf("%d/%d global vars, no target mapping for this evaluator",
-				globalResolved, globalTotal)
+				v.GlobalResolved, v.GlobalTotal)
 		} else {
 			msg = fmt.Sprintf("%d/%d global vars, %d/%d target vars",
-				globalResolved, globalTotal, targetResolved, targetTotal)
+				v.GlobalResolved, v.GlobalTotal, v.TargetResolved, v.TargetTotal)
 		}
 		return CheckResult{
-			Name: name, Label: "variables", Group: GroupVariables,
+			Name: v.Name, Label: "variables", Group: GroupVariables,
 			Status: StatusPass, Message: msg, Blocking: true,
 		}
 	}
 
 	var globalPart, targetPart string
-	if allGlobalPresent {
-		globalPart = fmt.Sprintf("%d/%d global vars", globalResolved, globalTotal)
+	if v.AllGlobalPresent {
+		globalPart = fmt.Sprintf("%d/%d global vars", v.GlobalResolved, v.GlobalTotal)
 	} else {
 		globalPart = fmt.Sprintf("%d/%d global vars — missing %s",
-			globalResolved, globalTotal, joinNames(missingGlobals))
+			v.GlobalResolved, v.GlobalTotal, joinNames(v.MissingGlobals))
 	}
-	if unmappedTargetVars {
+	if v.UnmappedTargetVars {
 		targetPart = fmt.Sprintf("target vars not validated — %s",
-			unmappedReason(resolver, resolveFailures))
-	} else if allTargetPresent {
-		targetPart = fmt.Sprintf("%d/%d target vars", targetResolved, targetTotal)
+			unmappedReason(v.Resolver, v.ResolveFailures))
+	} else if v.AllTargetPresent {
+		targetPart = fmt.Sprintf("%d/%d target vars", v.TargetResolved, v.TargetTotal)
 	} else {
 		targetPart = fmt.Sprintf("%d/%d target vars — missing %s",
-			targetResolved, targetTotal, joinNames(missingTargetVars))
+			v.TargetResolved, v.TargetTotal, joinNames(v.MissingTargetVars))
 	}
 	return CheckResult{
-		Name: name, Label: "variables", Group: GroupVariables,
+		Name: v.Name, Label: "variables", Group: GroupVariables,
 		Status: StatusFail, Message: globalPart + ", " + targetPart,
 		Blocking: true,
 	}
