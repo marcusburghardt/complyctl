@@ -14,8 +14,11 @@ import (
 )
 
 // ToSARIF converts a gemara.EvaluationLog to SARIF using go-gemara gemaraconv.
+// Passed evaluations are excluded to avoid noise in GitHub Code Scanning;
+// only actionable alerts (Failed, Unknown, NeedsReview) are emitted.
+// NotRun and NotApplicable are always skipped by gemaraconv.ToSARIF.
 func ToSARIF(log *gemara.EvaluationLog, artifactURI, outDir string) (string, error) {
-	sarifBytes, err := gemaraconv.ToSARIF(*log, gemaraconv.WithArtifactURI(artifactURI))
+	sarifBytes, err := gemaraconv.ToSARIF(*log, gemaraconv.WithArtifactURI(artifactURI), gemaraconv.WithExcludedStatuses(gemara.Passed))
 	if err != nil {
 		return "", fmt.Errorf("SARIF conversion failed: %w", err)
 	}
