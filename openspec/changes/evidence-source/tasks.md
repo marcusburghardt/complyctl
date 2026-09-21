@@ -2,9 +2,11 @@
 
 - [x] 1.1 Add `EvidenceMapping` message and `source` field to
   `api/plugin/plugin.proto`; remove stale ADR 0023 comment.
-  Add proto comment on `coordinate`/`entry_id` noting upstream
-  mutual-exclusivity constraint. Update `Evidence` message
-  comment to reference Gemara schema. Verify: `buf lint` and
+  Update `Evidence` message comment to reference Gemara schema.
+  (Note: mutual-exclusivity proto comments were initially added
+  then removed per upstream confirmation from @jpower432 that
+  `coordinate` and `entry_id` are not mutually exclusive -- see
+  commit `b103bad6`.) Verify: `buf lint` and
   `buf breaking --against .git#branch=main` both pass.
 - [x] 1.2 Regenerate Go code via `make proto`. Verify:
   `api/plugin/plugin.pb.go` compiles and contains the new
@@ -80,6 +82,42 @@
 - [x] 7.2 Add AGENTS.md "Recent Changes" entry for
   `evidence-source` documenting the proto API, SDK, evaluator,
   and Markdown formatter changes.
+
+## 8. MappingReferences Pipeline
+
+- [x] 8.1 Add `MappingReferences []gemara.MappingReference` field
+  to `DependencyGraph` and `policyLayerResult` in
+  `internal/policy/resolver.go`. Update
+  `extractFromGemaraPolicy()` to read
+  `p.Metadata.MappingReferences`. Verify: existing resolver
+  tests still pass.
+- [x] 8.2 Propagate `MappingReferences` from `policyLayerResult`
+  to `DependencyGraph` in both `resolveBundleGraph` and
+  `resolveSplitGraph`. Verify: new tests
+  `TestResolvePolicyGraph_SplitGraph_MappingReferencesPropagated`
+  and
+  `TestResolvePolicyGraph_BundleGraph_MappingReferencesPropagated`
+  pass.
+- [x] 8.3 Add `mappingReferences []gemara.MappingReference` as
+  sixth parameter to `NewEvaluator` in
+  `internal/output/evaluator.go`. Update `GemaraLog()` to
+  populate `Metadata.MappingReferences`. Update all existing
+  `NewEvaluator` call sites (passing `nil` where no references
+  exist). Verify: new tests
+  `TestGemaraLog_MappingReferencesPopulated` and
+  `TestGemaraLog_NilMappingReferencesOmitted` pass.
+- [x] 8.4 Wire `graph.MappingReferences` through the scan
+  pipeline: `runScanAndReport` -> `processScanOutput` ->
+  `buildEvaluators` -> `NewEvaluator`. Verify: `make test-unit`
+  passes.
+- [x] 8.5 Verify MappingReferences serialization: YAML output
+  contains `mapping-references:` block when policy has
+  references; YAML omits the key when absent; JSON output
+  contains `mapping-references` array with correct key names.
+  Verify: tests
+  `TestEvaluator_Write_MappingReferencesSerializedInYAML`,
+  `TestEvaluator_Write_NilMappingReferencesOmittedFromYAML`,
+  `TestEvaluator_Write_MappingReferencesSerializedInJSON` pass.
 
 <!-- spec-review: passed -->
 <!-- code-review: passed -->

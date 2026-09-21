@@ -12,14 +12,25 @@ has an `Evidence` message with five fields and no `source`. The
 proto comment explicitly references "ADR 0023" for future
 extension, but ADR 0023 was never written.
 
-The pipeline has four conversion boundaries:
+The pipeline has four conversion boundaries for evidence source:
 
-1. Provider -> proto (`internalEvidenceToProto`, `server.go:107`)
-2. Proto -> internal (`protoEvidenceToInternal`, `client.go:263`)
-3. Internal -> gemara (`evaluator.go:218`)
+1. Provider -> proto (`internalEvidenceToProto`, `server.go`)
+2. Proto -> internal (`protoEvidenceToInternal`, `client.go`)
+3. Internal -> gemara (`evaluator.go`)
 4. Gemara -> output (YAML/JSON/Markdown)
 
-All four boundaries need the `source` field added.
+All four boundaries carry the `source` field.
+
+A fifth data path handles MappingReferences:
+
+5. Policy metadata -> resolver -> DependencyGraph ->
+   Evaluator -> EvaluationLog.Metadata.MappingReferences
+
+MappingReferences are not part of the evidence source gRPC
+path; they are extracted from the Gemara policy artifact
+during policy resolution and propagated to the EvaluationLog
+so that evidence `reference_id` values can be resolved by
+downstream consumers.
 
 ## Goals / Non-Goals
 
@@ -30,25 +41,31 @@ All four boundaries need the `source` field added.
 - Round-trip fidelity for all five `EvidenceMapping` subfields
 - Evidence source rendered in Markdown reports
 - Evidence source serialized in YAML/JSON evaluation logs
+- MappingReferences from policy metadata propagated to
+  EvaluationLog.Metadata so consumers can resolve evidence
+  `reference_id` values to their source artifacts
 
 **Non-Goals:**
 
-- OSCAL and SARIF evidence rendering -- both are deferred to
-  upstream go-gemara. SARIF output already delegates to
-  `gemaraconv.ToSARIF()` and will gain evidence support
+- OSCAL evidence rendering (`relevant_evidence` field mapping)
+  -- deferred to upstream go-gemara. Note:
+  MappingReferences are now propagated into
+  EvaluationLog.Metadata, so once the existing FIXME
+  migration of `internal/output/oscal.go` to
+  `gemaraconv.EvaluationLogToOSCALAssessmentResults` lands,
+  OSCAL BackMatter will be populated automatically at no
+  further cost -- the data is already present. Tracked in a
+  separate complyctl issue ([#851][complyctl-851]).
+- SARIF evidence rendering -- deferred to upstream go-gemara;
+  `gemaraconv.ToSARIF()` will gain evidence support
   automatically once [go-gemara#127][go-gemara-127] lands.
-  The local OSCAL formatter (`internal/output/oscal.go`) has
-  an existing `FIXME(jpower432)` flagging migration to
-  `gemaraconv`; once that migration happens and go-gemara
-  adds `relevant_evidence` mapping, OSCAL evidence flows
-  through with no further complyctl changes. Tracked in a
-  separate complyctl issue.
 - `Payload` type widening from `bytes` to `any` (breaking proto
   change, not needed for source provenance)
 - Provider-side implementation in complytime-providers (tracked
   via separate issue)
 
 [go-gemara-127]: https://github.com/gemaraproj/go-gemara/issues/127
+[complyctl-851]: https://github.com/complytime/complyctl/issues/851
 
 ## Decisions
 
@@ -131,6 +148,28 @@ since this change implements the deferred extension directly.
 written. Leaving it after the `source` field is added would be
 misleading. The proto comment on the `Evidence` message will be
 updated to reference the Gemara `#Evidence` schema directly.
+
+### D6: MappingReferences extracted at policy resolution
+
+**Decision**: MappingReferences are extracted from
+`gemara.Policy.Metadata.MappingReferences` during
+`Resolver.ResolvePolicyGraph()` and propagated via
+`DependencyGraph.MappingReferences` through the scan
+pipeline to `Evaluator`, which stores them and emits them
+in `EvaluationLog.Metadata`.
+
+**Rationale**: MappingReferences are policy-level metadata,
+not per-evidence data. They belong in the policy resolution
+layer (`internal/policy/`), not in the provider gRPC API.
+Providers have no need to send MappingReferences -- they
+are a property of the policy artifact loaded from the OCI
+registry. The evaluator receives them as a constructor
+parameter and stores them for use in `GemaraLog()`.
+
+**Alternative considered**: Having providers send
+MappingReferences via a new gRPC field. Rejected: providers
+do not own policy metadata; the OCI-resident policy artifact
+is the authoritative source.
 
 ## Risks / Trade-offs
 

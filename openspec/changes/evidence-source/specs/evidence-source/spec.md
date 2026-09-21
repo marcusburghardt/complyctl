@@ -121,3 +121,50 @@ current behavior (no source information shown).
 - **WHEN** an evidence entry has `Source` nil
 - **THEN** the Markdown evidence metadata MUST not include any
   source-related text
+
+### Requirement: Policy MappingReferences propagated to EvaluationLog
+
+The policy resolver MUST extract `MappingReferences` from
+`gemara.Policy.Metadata.MappingReferences` during policy graph
+resolution and expose them on `DependencyGraph.MappingReferences`.
+The scan pipeline MUST pass `DependencyGraph.MappingReferences` to
+`NewEvaluator`. The evaluator MUST populate
+`EvaluationLog.Metadata.MappingReferences` with the received
+references. When the policy has no `mapping-references` in its
+metadata, the evaluator MUST leave
+`EvaluationLog.Metadata.MappingReferences` nil (absent from
+serialized output via `omitempty` tags).
+
+#### Scenario: Policy with mapping-references populates EvaluationLog
+
+- **WHEN** the resolved Gemara policy YAML contains:
+  ```yaml
+  metadata:
+    mapping-references:
+      - id: nist-800-53
+        title: NIST SP 800-53 Rev 5
+        version: "5.0"
+  ```
+- **THEN** the EvaluationLog YAML output MUST contain:
+  ```yaml
+  metadata:
+    mapping-references:
+      - id: nist-800-53
+        title: NIST SP 800-53 Rev 5
+        version: "5.0"
+  ```
+
+#### Scenario: Policy without mapping-references omits field
+
+- **WHEN** the resolved Gemara policy YAML contains no
+  `mapping-references` key in its metadata
+- **THEN** the EvaluationLog output MUST NOT contain a
+  `mapping-references` key in the `metadata` block
+
+#### Scenario: Bundle-format policy propagates identically
+
+- **WHEN** the policy is loaded in bundle format (single OCI
+  artifact) and its `Policy` document contains
+  `mapping-references`
+- **THEN** the EvaluationLog MUST contain those references
+  identically to the split-format case

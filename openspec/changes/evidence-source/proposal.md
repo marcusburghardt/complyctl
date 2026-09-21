@@ -32,6 +32,12 @@ project maintainers as a missing capability.
 - Update the evaluator (`internal/output/evaluator.go`) to map
   `provider.EvidenceSource` to `gemara.EvidenceMapping` when
   constructing evaluation log entries.
+- Extract `MappingReferences` from `Policy.Metadata` during
+  policy resolution and propagate them through
+  `DependencyGraph` -> `Evaluator` ->
+  `EvaluationLog.Metadata.MappingReferences`, enabling
+  downstream consumers to resolve evidence `reference_id`
+  values back to their source artifacts.
 - Update the Markdown formatter to render source provenance
   metadata when present.
 - Update the test provider to emit evidence with `source` populated
@@ -60,8 +66,20 @@ project maintainers as a missing capability.
 - **Provider SDK** (`pkg/provider/`): New exported types
   (`EvidenceSource` struct, `Source` field on `Evidence`). No
   breaking changes.
+- **Policy resolver** (`internal/policy/resolver.go`):
+  `DependencyGraph` and `policyLayerResult` gain
+  `MappingReferences []gemara.MappingReference`;
+  `extractFromGemaraPolicy()` reads
+  `p.Metadata.MappingReferences`; both `resolveBundleGraph`
+  and `resolveSplitGraph` propagate the field to the graph.
 - **Evaluator** (`internal/output/evaluator.go`): Conditional
-  mapping of `Source` when non-nil.
+  mapping of `Source` when non-nil. `NewEvaluator` gains a
+  sixth parameter (`mappingReferences []gemara.MappingReference`);
+  `GemaraLog()` populates `Metadata.MappingReferences`.
+- **Scan command** (`cmd/complyctl/cli/scan.go`):
+  `processScanOutput` and `buildEvaluators` gain a
+  `mappingRefs` parameter; `graph.MappingReferences` is
+  wired through the pipeline from resolver to evaluator.
 - **Markdown formatter** (`internal/output/markdown.go`): Enhanced
   evidence metadata rendering.
 - **Test provider** (`cmd/test-provider/main.go`): Updated fixture
