@@ -26,6 +26,7 @@ type Evaluator struct {
 	reqToControl       map[string]string
 	reqToPlan          map[string]string
 	reqToComplypackRef map[string]string
+	mappingReferences  []gemara.MappingReference
 	controlEvals       map[string]*gemara.ControlEvaluation
 	controlOrder       []string
 	// controlStepNames tracks step name strings parallel to each control's
@@ -47,14 +48,17 @@ func defaultMap(m map[string]string) map[string]string {
 // reqToPlan maps requirement IDs to assessment plan IDs for populating the Plan
 // field; pass nil when unavailable. reqToComplypackRef maps requirement IDs
 // directly to OCI references (repository@digest) for step identity; pass nil
-// when no complypacks are configured.
-func NewEvaluator(policyID, targetID string, reqToControl, reqToPlan, reqToComplypackRef map[string]string) *Evaluator {
+// when no complypacks are configured. mappingReferences are propagated from the
+// policy metadata into the EvaluationLog so downstream consumers (OSCAL
+// BackMatter, evidence source cross-references) can resolve reference IDs.
+func NewEvaluator(policyID, targetID string, reqToControl, reqToPlan, reqToComplypackRef map[string]string, mappingReferences []gemara.MappingReference) *Evaluator {
 	return &Evaluator{
 		policyID:           policyID,
 		targetID:           targetID,
 		reqToControl:       defaultMap(reqToControl),
 		reqToPlan:          defaultMap(reqToPlan),
 		reqToComplypackRef: defaultMap(reqToComplypackRef),
+		mappingReferences:  mappingReferences,
 		controlEvals:       make(map[string]*gemara.ControlEvaluation),
 		controlStepNames:   make(map[string][][]string),
 	}
@@ -118,10 +122,11 @@ func (e *Evaluator) GemaraLog() *gemara.EvaluationLog {
 		Evaluations: evals,
 		Result:      result,
 		Metadata: gemara.Metadata{
-			Id:            e.policyID,
-			Type:          gemara.EvaluationLogArtifact,
-			GemaraVersion: gemara.SchemaVersion,
-			Description:   "Compliance scan evaluation log",
+			Id:                e.policyID,
+			Type:              gemara.EvaluationLogArtifact,
+			GemaraVersion:     gemara.SchemaVersion,
+			Description:       "Compliance scan evaluation log",
+			MappingReferences: e.mappingReferences,
 			Author: gemara.Actor{
 				Id:   "complytime",
 				Name: "complytime",

@@ -17,7 +17,7 @@ import (
 )
 
 func TestNewEvaluator_NilMapsInitialized(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	// Should not panic when adding targets — nil maps are initialized internally.
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
@@ -29,7 +29,7 @@ func TestNewEvaluator_NonNilMapsPreserved(t *testing.T) {
 	reqToControl := map[string]string{"req-1": "ctrl-1"}
 	reqToPlan := map[string]string{"req-1": "plan-1"}
 	reqToComplypackRef := map[string]string{"req-1": "registry.example.com/complypacks/opa@sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"}
-	eval := output.NewEvaluator("pol", "tgt", reqToControl, reqToPlan, reqToComplypackRef)
+	eval := output.NewEvaluator("pol", "tgt", reqToControl, reqToPlan, reqToComplypackRef, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -42,7 +42,7 @@ func TestNewEvaluator_NonNilMapsPreserved(t *testing.T) {
 }
 
 func TestGemaraLog_MetadataType(t *testing.T) {
-	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil)
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "REQ-1",
@@ -93,7 +93,7 @@ func TestGemaraLog_AggregatesResult(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+			eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 			eval.AddTarget([]provider.AssessmentLog{
 				{RequirementID: "R1", Steps: tt.steps},
 			})
@@ -103,7 +103,7 @@ func TestGemaraLog_AggregatesResult(t *testing.T) {
 }
 
 func TestGemaraLog_AllSkippedControlsYieldNotApplicable(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultSkipped, Message: "n/a"}}},
 		{RequirementID: "R2", Steps: []provider.Step{{Result: provider.ResultSkipped, Message: "n/a"}}},
@@ -118,7 +118,7 @@ func TestGemaraLog_AllSkippedControlsYieldNotApplicable(t *testing.T) {
 }
 
 func TestGemaraLog_NoAssessmentsYieldsNotApplicable(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget(nil)
 	log := eval.GemaraLog()
 	assert.Equal(t, gemara.NotApplicable, log.Result)
@@ -126,7 +126,7 @@ func TestGemaraLog_NoAssessmentsYieldsNotApplicable(t *testing.T) {
 }
 
 func TestGemaraLog_PopulatesTarget(t *testing.T) {
-	eval := output.NewEvaluator("policy-id", "my-target", nil, nil, nil)
+	eval := output.NewEvaluator("policy-id", "my-target", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -138,7 +138,7 @@ func TestGemaraLog_PopulatesTarget(t *testing.T) {
 }
 
 func TestGemaraLog_AssessmentMessageUsesStepViolation(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "REQ-1",
@@ -156,7 +156,7 @@ func TestGemaraLog_AssessmentMessageUsesStepViolation(t *testing.T) {
 }
 
 func TestGemaraLog_PassingAssessmentKeepsProviderMessage(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "REQ-1",
@@ -175,7 +175,7 @@ func TestGemaraLog_PassingAssessmentKeepsProviderMessage(t *testing.T) {
 
 func TestGemaraLog_PlanFieldPopulated(t *testing.T) {
 	reqToPlan := map[string]string{"req-1": "plan-1"}
-	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "req-1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -190,7 +190,7 @@ func TestGemaraLog_PlanFieldPopulated(t *testing.T) {
 }
 
 func TestGemaraLog_PlanFieldOmittedWhenNoMapping(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "req-1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -203,7 +203,7 @@ func TestGemaraLog_PlanFieldOmittedWhenNoMapping(t *testing.T) {
 
 func TestGemaraLog_PlanFieldOmittedForUnmappedRequirement(t *testing.T) {
 	reqToPlan := map[string]string{"other-req": "plan-99"}
-	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "req-1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -216,7 +216,7 @@ func TestGemaraLog_PlanFieldOmittedForUnmappedRequirement(t *testing.T) {
 
 func TestEvaluator_Write(t *testing.T) {
 	outDir := t.TempDir()
-	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil)
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -243,7 +243,7 @@ func TestEvaluator_Write_StepIdentityWithComplypackRef(t *testing.T) {
 	outDir := t.TempDir()
 	reqToPlan := map[string]string{"req-1": "plan-1"}
 	reqToComplypackRef := map[string]string{"req-1": "registry.example.com/complypacks/opa@sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"}
-	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, reqToComplypackRef)
+	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, reqToComplypackRef, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -267,7 +267,7 @@ func TestEvaluator_Write_StepIdentityWithComplypackRef(t *testing.T) {
 
 func TestEvaluator_Write_StepIdentityWithoutComplypack(t *testing.T) {
 	outDir := t.TempDir()
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -288,7 +288,7 @@ func TestEvaluator_Write_StepIdentityWithoutComplypack(t *testing.T) {
 }
 
 func TestGemaraLog_EvidencePopulated(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -334,7 +334,7 @@ func TestGemaraLog_EvidencePopulated(t *testing.T) {
 }
 
 func TestGemaraLog_EvidenceSourceNilPreservesZeroValue(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -364,7 +364,7 @@ func TestGemaraLog_EvidenceSourceNilPreservesZeroValue(t *testing.T) {
 }
 
 func TestGemaraLog_EvidenceEmptyWhenNotProvided(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "req-1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -379,7 +379,7 @@ func TestGemaraLog_EvidenceEmptyWhenNotProvided(t *testing.T) {
 func TestEvaluator_Write_EvidenceSerialized(t *testing.T) {
 	t.Run("with source", func(t *testing.T) {
 		outDir := t.TempDir()
-		eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+		eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 		eval.AddTarget([]provider.AssessmentLog{
 			{
 				RequirementID: "req-1",
@@ -419,7 +419,7 @@ func TestEvaluator_Write_EvidenceSerialized(t *testing.T) {
 
 	t.Run("without source omits source key in YAML", func(t *testing.T) {
 		outDir := t.TempDir()
-		eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+		eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 		eval.AddTarget([]provider.AssessmentLog{
 			{
 				RequirementID: "req-1",
@@ -450,7 +450,7 @@ func TestEvaluator_Write_EvidenceSerialized(t *testing.T) {
 
 func TestEvaluator_Write_JSON_EvidenceSource(t *testing.T) {
 	outDir := t.TempDir()
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -490,7 +490,7 @@ func TestEvaluator_Write_JSON_EvidenceSource(t *testing.T) {
 }
 
 func TestGemaraLog_EvidenceBinaryPayloadBase64(t *testing.T) {
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -516,7 +516,7 @@ func TestGemaraLog_EvidenceBinaryPayloadBase64(t *testing.T) {
 
 func TestEvaluator_Write_StepIdentityEmptyName(t *testing.T) {
 	outDir := t.TempDir()
-	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -539,7 +539,7 @@ func TestEvaluator_Write_StepIdentityEmptyName(t *testing.T) {
 
 func TestEvaluator_Write_JSON(t *testing.T) {
 	outDir := t.TempDir()
-	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil)
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})
@@ -577,7 +577,7 @@ func TestEvaluator_Write_JSON(t *testing.T) {
 func TestEvaluator_Write_JSON_FieldNames(t *testing.T) {
 	outDir := t.TempDir()
 	reqToPlan := map[string]string{"req-1": "plan-1"}
-	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, nil)
+	eval := output.NewEvaluator("pol", "tgt", nil, reqToPlan, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{
 			RequirementID: "req-1",
@@ -612,9 +612,109 @@ func TestEvaluator_Write_JSON_FieldNames(t *testing.T) {
 	assert.NotContains(t, content, `"GemaraVersion"`)
 }
 
+func TestGemaraLog_MappingReferencesPopulated(t *testing.T) {
+	refs := []gemara.MappingReference{
+		{Id: "nist-800-53", Title: "NIST SP 800-53 Rev 5", Version: "5.0"},
+		{Id: "cis-k8s", Title: "CIS Kubernetes Benchmark", Version: "1.8"},
+	}
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, refs)
+	eval.AddTarget([]provider.AssessmentLog{
+		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
+	})
+
+	log := eval.GemaraLog()
+	require.Len(t, log.Metadata.MappingReferences, 2)
+	assert.Equal(t, "nist-800-53", log.Metadata.MappingReferences[0].Id)
+	assert.Equal(t, "NIST SP 800-53 Rev 5", log.Metadata.MappingReferences[0].Title)
+	assert.Equal(t, "5.0", log.Metadata.MappingReferences[0].Version)
+	assert.Equal(t, "cis-k8s", log.Metadata.MappingReferences[1].Id)
+}
+
+func TestGemaraLog_NilMappingReferencesOmitted(t *testing.T) {
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{
+		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
+	})
+
+	log := eval.GemaraLog()
+	assert.Nil(t, log.Metadata.MappingReferences)
+}
+
+func TestEvaluator_Write_MappingReferencesSerializedInYAML(t *testing.T) {
+	outDir := t.TempDir()
+	refs := []gemara.MappingReference{
+		{
+			Id:      "nist-800-53",
+			Title:   "NIST SP 800-53 Rev 5",
+			Version: "5.0",
+			Url:     "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+		},
+	}
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, refs)
+	eval.AddTarget([]provider.AssessmentLog{
+		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
+	})
+
+	path, err := eval.Write(outDir, "yaml")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.Contains(t, content, "mapping-references:")
+	assert.Contains(t, content, "id: nist-800-53")
+	assert.Contains(t, content, "title: NIST SP 800-53 Rev 5")
+}
+
+func TestEvaluator_Write_NilMappingReferencesOmittedFromYAML(t *testing.T) {
+	outDir := t.TempDir()
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{
+		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
+	})
+
+	path, err := eval.Write(outDir, "yaml")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "mapping-references:")
+}
+
+func TestEvaluator_Write_MappingReferencesSerializedInJSON(t *testing.T) {
+	outDir := t.TempDir()
+	refs := []gemara.MappingReference{
+		{Id: "nist-800-53", Title: "NIST SP 800-53 Rev 5", Version: "5.0"},
+	}
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, refs)
+	eval.AddTarget([]provider.AssessmentLog{
+		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
+	})
+
+	path, err := eval.Write(outDir, "json")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	var parsed map[string]interface{}
+	require.NoError(t, json.Unmarshal(data, &parsed))
+
+	metadata, ok := parsed["metadata"].(map[string]interface{})
+	require.True(t, ok)
+	mappingRefs, ok := metadata["mapping-references"].([]interface{})
+	require.True(t, ok, "mapping-references should be present in JSON output")
+	require.Len(t, mappingRefs, 1)
+
+	ref := mappingRefs[0].(map[string]interface{})
+	assert.Equal(t, "nist-800-53", ref["id"])
+	assert.Equal(t, "NIST SP 800-53 Rev 5", ref["title"])
+}
+
 func TestEvaluator_Write_YAML_Default(t *testing.T) {
 	outDir := t.TempDir()
-	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil)
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
 		{RequirementID: "R1", Steps: []provider.Step{{Result: provider.ResultPassed, Message: "ok"}}},
 	})

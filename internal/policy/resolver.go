@@ -14,12 +14,13 @@ import (
 
 // DependencyGraph represents a resolved set of Controls, Guidelines, and Assessments
 type DependencyGraph struct {
-	PolicyID    string
-	Controls    []Control
-	Guidelines  []Guideline
-	Assessments []Assessment
-	EvaluatorID string
-	Timeline    *PolicyTimeline
+	PolicyID          string
+	Controls          []Control
+	Guidelines        []Guideline
+	Assessments       []Assessment
+	EvaluatorID       string
+	Timeline          *PolicyTimeline
+	MappingReferences []gemara.MappingReference
 }
 
 // Control pairs raw OCI layer content with a parsed Gemara ControlCatalog.
@@ -309,6 +310,7 @@ func (r *Resolver) resolveBundleGraph(policyID, version string) (*DependencyGrap
 	graph.EvaluatorID = policyLayer.EvaluatorID
 	graph.Assessments = append(graph.Assessments, policyLayer.Assessments...)
 	graph.Timeline = policyLayer.Timeline
+	graph.MappingReferences = policyLayer.MappingReferences
 
 	return graph, nil
 }
@@ -362,6 +364,7 @@ func (r *Resolver) resolveSplitGraph(policyID, version string) (*DependencyGraph
 	graph.EvaluatorID = policyLayer.EvaluatorID
 	graph.Assessments = append(graph.Assessments, policyLayer.Assessments...)
 	graph.Timeline = policyLayer.Timeline
+	graph.MappingReferences = policyLayer.MappingReferences
 
 	return graph, nil
 }
@@ -383,10 +386,11 @@ func parseGuidanceCatalog(data []byte) (*gemara.GuidanceCatalog, error) {
 }
 
 type policyLayerResult struct {
-	Title       string
-	EvaluatorID string
-	Assessments []Assessment
-	Timeline    *PolicyTimeline
+	Title             string
+	EvaluatorID       string
+	Assessments       []Assessment
+	Timeline          *PolicyTimeline
+	MappingReferences []gemara.MappingReference
 }
 
 // parsePolicyLayer accepts only gemara.Policy with adherence.assessment-plans (R39).
@@ -452,9 +456,10 @@ func extractFromGemaraPolicy(p *gemara.Policy) policyLayerResult {
 	}
 
 	return policyLayerResult{
-		Title:       p.Title,
-		EvaluatorID: resultEvalID,
-		Assessments: assessments,
-		Timeline:    timeline,
+		Title:             p.Title,
+		EvaluatorID:       resultEvalID,
+		Assessments:       assessments,
+		Timeline:          timeline,
+		MappingReferences: p.Metadata.MappingReferences,
 	}
 }
