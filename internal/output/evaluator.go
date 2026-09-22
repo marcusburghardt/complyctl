@@ -43,14 +43,20 @@ func defaultMap(m map[string]string) map[string]string {
 	return m
 }
 
-// NewEvaluator creates an Evaluator scoped to a single target. reqToControl
-// maps requirement IDs to control IDs; pass nil when the catalog is unavailable.
-// reqToPlan maps requirement IDs to assessment plan IDs for populating the Plan
-// field; pass nil when unavailable. reqToComplypackRef maps requirement IDs
-// directly to OCI references (repository@digest) for step identity; pass nil
-// when no complypacks are configured. mappingReferences are propagated from the
-// policy metadata into the EvaluationLog so downstream consumers (OSCAL
-// BackMatter, evidence source cross-references) can resolve reference IDs.
+// NewEvaluator creates an Evaluator scoped to a single target.
+//
+// Parameters:
+//   - reqToControl: maps requirement IDs to control IDs; pass nil when the
+//     catalog is unavailable.
+//   - reqToPlan: maps requirement IDs to assessment plan IDs for populating
+//     the Plan field; pass nil when unavailable.
+//   - reqToComplypackRef: maps requirement IDs directly to OCI references
+//     (repository@digest) for step identity; pass nil when no complypacks
+//     are configured.
+//   - mappingReferences: policy-level mapping references propagated into
+//     the EvaluationLog metadata so downstream consumers (OSCAL BackMatter,
+//     evidence source cross-references) can resolve reference IDs found in
+//     evidence source entries; pass nil when the policy has none.
 func NewEvaluator(policyID, targetID string, reqToControl, reqToPlan, reqToComplypackRef map[string]string, mappingReferences []gemara.MappingReference) *Evaluator {
 	return &Evaluator{
 		policyID:           policyID,

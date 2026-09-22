@@ -489,6 +489,57 @@ func TestEvaluator_Write_JSON_EvidenceSource(t *testing.T) {
 	assert.Contains(t, content, `"/etc/tls.conf"`)
 }
 
+// TestEvaluator_Write_JSON_EvidenceSourceNilEmitsEmptyObject verifies that
+// encoding/json emits "source": {} for nil-source evidence because
+// gemara.EvidenceMapping is a value type without omitempty on the parent
+// field. This is a documented upstream serialization characteristic (design
+// decision D3) — YAML omits it via goccy/go-yaml omitempty, but JSON does
+// not. This test pins the behavior so any upstream change is caught.
+func TestEvaluator_Write_JSON_EvidenceSourceNilEmitsEmptyObject(t *testing.T) {
+	outDir := t.TempDir()
+	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{
+		{
+			RequirementID: "req-1",
+			Steps:         []provider.Step{{Result: provider.ResultFailed, Message: "bad"}},
+			Evidence: []provider.Evidence{
+				{
+					ID:          "ev-nil-src",
+					Type:        "log-entry",
+					Description: "log without source",
+					Payload:     []byte("data"),
+					CollectedAt: "2026-06-23T14:00:00Z",
+					// Source is nil — no provenance info.
+				},
+			},
+		},
+	})
+
+	path, err := eval.Write(outDir, "json")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	assert.True(t, json.Valid(data), "output should be valid JSON")
+
+	content := string(data)
+	assert.Contains(t, content, `"ev-nil-src"`)
+
+	// encoding/json emits zero-value structs — not omitted like YAML.
+	// go-gemara's EvidenceMapping.ReferenceId lacks omitempty, so it
+	// serializes as "reference-id": "". Pin this behavior so any
+	// upstream tag change is caught.
+	assert.Contains(t, content, `"source"`,
+		"JSON should include source key even when EvidenceSource is nil")
+	assert.Contains(t, content, `"reference-id": ""`,
+		"nil source should emit empty reference-id, not populated value")
+	assert.NotContains(t, content, `"coordinate"`,
+		"nil source should not produce coordinate in JSON")
+	assert.NotContains(t, content, `"digest"`,
+		"nil source should not produce digest in JSON")
+}
+
 func TestGemaraLog_EvidenceBinaryPayloadBase64(t *testing.T) {
 	eval := output.NewEvaluator("pol", "tgt", nil, nil, nil, nil)
 	eval.AddTarget([]provider.AssessmentLog{
