@@ -33,5 +33,5 @@
 - [x] 6.1 Run `make test-unit` — all tests pass
 - [x] 6.2 Run `make lint` — no new warnings
 - [x] 6.3 Run `make vet` — no issues
-- [ ] 6.4 Run `make sanity` — vendor + format + vet + git diff clean
+- [x] 6.4 Run `make sanity` — vendor + format + vet + git diff clean
 - [x] 6.5 Run `make crapload-check` — no CRAP regressions
