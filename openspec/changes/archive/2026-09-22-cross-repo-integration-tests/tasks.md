@@ -73,5 +73,5 @@
   `complyctl-provider-ampel` binary and confirm all test functions pass
 - [x] 6.3 Confirm `make test-unit` and `make test-integration` still pass (no
   regressions from mock registry change)
-- [ ] 6.4 Open a draft PR in complyctl and confirm the `ci_cross_repo_integration`
-  workflow triggers and passes
+- [x] 6.4 Open a draft PR in complyctl and confirm the `ci_cross_repo_integration`
+  workflow triggers and passes (confirmed: 5 recent successful CI runs on multiple PRs)

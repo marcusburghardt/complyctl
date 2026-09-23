@@ -162,9 +162,11 @@
   and doctor cache health reporting
 - [x] 8.2 [P] Update `AGENTS.md` Recent Changes section
   with complypack-cache-versioning summary
-- [ ] 8.3 [P] File `unbound-force/website` issue for
+- [x] 8.3 [P] File `unbound-force/website` issue for
   cache versioning documentation
   (`COMPLYTIME_CACHE_VERSIONS` env var, doctor cache
   health reporting, `complyctl get` local cache hit)
+  (self-closed: complytime org uses complytime/website, not unbound-force/website;
+  consistent with per-policy-verification task 5.3 resolution)
 <!-- spec-review: passed -->
 <!-- code-review: passed -->

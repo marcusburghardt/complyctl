@@ -31,7 +31,7 @@
 
 - [x] 6.1 Verify `make build` compiles with the new embedded testdata
 - [x] 6.2 Verify `make test-unit` passes (mock registry tests)
-- [ ] 6.3 Verify `make test-devcontainer` passes (Containerfile builds)
+- [x] 6.3 Verify `make test-devcontainer` passes (Containerfile builds)
 - [x] 6.4 Verify `make lint` passes with zero issues
 - [ ] 6.5 Manual test: start devcontainer, run `complyctl get`, verify both Ampel and OPA policies are fetched
 - [ ] 6.6 Manual test: run `complyctl generate --policy-id test-opa-bp` and verify generation succeeds (requires OPA provider with `ComplypackContentPath` support)

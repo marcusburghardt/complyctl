@@ -76,7 +76,7 @@
 
 ## 6. Verification (manual)
 
-- [ ] 6.1 Verify the Containerfile builds: `podman build .devcontainer/`
+- [x] 6.1 Verify the Containerfile builds: `podman build .devcontainer/`
   exits 0
 - [ ] 6.2 Verify the post-create script completes: all binaries on PATH
   (`command -v complyctl snappy ampel`), mock registry responds at
