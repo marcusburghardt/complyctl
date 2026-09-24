@@ -170,8 +170,10 @@ func (m *Manager) RouteGenerate(ctx context.Context, evaluatorID string, globalV
 // ScanResult holds the combined output of a RouteScanResult call, separating
 // evaluation results (Assessments) from operational failures (Errors).
 type ScanResult struct {
-	Assessments       []AssessmentLog
-	Errors            []string
+	Assessments []AssessmentLog
+	Errors      []string
+	// MappingReferences holds provider-declared external document
+	// references aggregated across providers.
 	MappingReferences []MappingReference
 	// rpcFailures tracks RPC-level errors with their evaluator context.
 	// RouteScan uses these to synthesize backward-compatible error assessments
