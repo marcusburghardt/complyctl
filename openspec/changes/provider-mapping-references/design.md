@@ -144,7 +144,8 @@ provenance of this specific reference.
 **Rationale**: Follows the established pattern -- `scanSingleTarget`
 already returns `([]provider.AssessmentLog, []string, error)` where
 assessments and errors are collected separately. Adding a 3rd
-collected type follows the same structure. The alternative of
+collected type (4th return value, counting the error) follows the
+same structure. The alternative of
 returning `*provider.ScanResponse` directly would change the
 abstraction level and is better suited as a separate refactoring
 if a 5th field is needed in the future (Principle III: incremental
@@ -166,7 +167,7 @@ evaluator IDs before iteration.
 
 ### D7: Merge function placement
 
-**Decision**: `mergeMappingReferences()` and
+**Decision**: `MergeMappingReferences()` and
 `FormatMappingCollisions()` are placed in
 `internal/output/scan_summary.go` alongside
 `FormatOperationalWarnings()`.

@@ -112,19 +112,40 @@ CUE schema enforces `_uniqueRefIds` on `mapping-references`.
 
 #### Scenario: ID collision between policy and provider
 
-- **WHEN** the policy declares `{id: "nist-r5", title: "NIST SP 800-53"}` and
-  the provider declares `{id: "nist-r5", title: "NIST 800-53 R5.1.1"}`
+- **GIVEN** the policy DependencyGraph declares
+  `{id: "nist-r5", title: "NIST SP 800-53"}` and a provider scan
+  completes
+- **WHEN** the provider's ScanResponse also declares
+  `{id: "nist-r5", title: "NIST 800-53 R5.1.1"}`
 - **THEN** the merged list MUST retain the policy entry and
   discard the provider entry (policy is the authoritative source
   for catalog-type references)
 
 #### Scenario: ID collision between two providers
 
-- **WHEN** provider A declares `{id: "system-config", title: "System Files"}`
-  and provider B declares `{id: "system-config", title: "K8s ConfigMaps"}`
-- **THEN** the merged list MUST retain the first provider's entry
-  and discard the second (provider-to-provider collision is an
+- **GIVEN** providers are processed in ascending evaluator-ID order
+- **WHEN** provider with evaluator-id `ampel` declares
+  `{id: "system-config", title: "System Files"}` and provider with
+  evaluator-id `openscap` declares
+  `{id: "system-config", title: "K8s ConfigMaps"}`
+- **THEN** the merged list MUST retain the entry from evaluator
+  `ampel` (alphabetically first) and discard the entry from
+  evaluator `openscap` (provider-to-provider collision is an
   authoring mistake, not a production scenario)
+
+#### Scenario: Same provider declares duplicate reference IDs
+
+- **WHEN** a single provider returns two MappingReferences both
+  with `id: "config"` in one ScanResponse
+- **THEN** the merge function MUST deduplicate them with the same
+  collision warning channels as cross-provider collisions
+
+#### Scenario: Provider sends MappingReference with empty id
+
+- **WHEN** a provider returns a MappingReference with `id: ""`
+- **THEN** the merge function MUST discard the entry and emit a
+  structured `logger.Warn()` entry noting the empty-ID reference
+  was skipped
 
 ### Requirement: Collision warnings reported to operator
 
@@ -145,25 +166,42 @@ When no collisions occur, no warnings MUST be emitted and no
 
 #### Scenario: Policy-provider collision produces stderr warning
 
-- **WHEN** the policy and provider both declare `id: "nist-r5"`
-- **THEN** stderr MUST contain a WARNING line identifying the
+- **GIVEN** the policy and provider both declare `id: "nist-r5"`
+- **WHEN** the merge function processes both sources
+- **THEN** stderr MUST contain a WARNING line following the
+  `FormatOperationalWarnings()` block format, identifying the
   collision, the retained entry (policy), and the discarded entry
   (provider)
 
 #### Scenario: Collision annotates retained MappingReference
 
-- **WHEN** the policy declares `{id: "nist-r5", title: "NIST SP 800-53"}`
-  and the provider declares `{id: "nist-r5", title: "NIST R5.1.1"}`
+- **GIVEN** the policy declares
+  `{id: "nist-r5", title: "NIST SP 800-53"}` and the provider
+  declares `{id: "nist-r5", title: "NIST R5.1.1"}`
+- **WHEN** the merge function resolves the collision
 - **THEN** the retained MappingReference in the EvaluationLog MUST
-  have its `description` field set to text documenting the discarded
-  provider entry
+  have its `description` field prepended with text documenting the
+  discarded provider entry, preserving any existing description
+  content. The annotation MUST include the discarded entry's `id`
+  and `title` (if non-empty), and identify the source that was
+  discarded (e.g., "provider").
+
+#### Scenario: Collision preserves existing description
+
+- **GIVEN** the policy declares
+  `{id: "x", description: "Existing text"}` and the provider
+  declares `{id: "x", title: "Other"}`
+- **WHEN** the merge function resolves the collision
+- **THEN** the retained MappingReference description MUST contain
+  both the collision annotation AND "Existing text"
 
 #### Scenario: No collision produces no warnings
 
 - **WHEN** the policy and provider declare references with distinct
   IDs
-- **THEN** stderr MUST NOT contain any collision warnings and no
-  `description` annotations MUST be added to any MappingReference
+- **THEN** the system MUST NOT emit any collision warnings to
+  stderr and MUST NOT add `description` annotations to any
+  MappingReference
 
 ### Requirement: Merged references populate EvaluationLog metadata
 
