@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gemaraproj/go-gemara"
+	"github.com/goccy/go-yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1041,4 +1042,116 @@ adherence:
           executor:
             id: openscap
 `)
+}
+
+func validPolicyYAMLWithMappingRefs() []byte {
+	return []byte(`
+title: Test Policy With Refs
+metadata:
+  id: pol-1
+  type: Policy
+  gemara-version: 1.0.0
+  version: "1.0"
+  mapping-references:
+    - id: nist-800-53
+      title: NIST SP 800-53 Rev 5
+      version: "5.0"
+      url: https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final
+    - id: cis-k8s
+      title: CIS Kubernetes Benchmark
+      version: "1.8"
+contacts:
+  responsible:
+    - name: team-a
+  accountable:
+    - name: team-b
+scope:
+  in:
+    technologies:
+      - linux
+imports:
+  catalogs:
+    - reference-id: cat-1
+adherence:
+  assessment-plans:
+    - id: ap-1
+      requirement-id: req-1
+      frequency: daily
+      evaluation-methods:
+        - id: openscap-eval
+          type: Behavioral
+          mode: Automated
+          executor:
+            id: openscap
+`)
+}
+
+// --- MappingReferences extraction tests ---
+
+func TestExtractFromGemaraPolicy_MappingReferencesPreserved(t *testing.T) {
+	var p gemara.Policy
+	err := yaml.Unmarshal(validPolicyYAMLWithMappingRefs(), &p)
+	require.NoError(t, err)
+
+	result := extractFromGemaraPolicy(&p)
+	require.Len(t, result.MappingReferences, 2)
+	assert.Equal(t, "nist-800-53", result.MappingReferences[0].Id)
+	assert.Equal(t, "NIST SP 800-53 Rev 5", result.MappingReferences[0].Title)
+	assert.Equal(t, "5.0", result.MappingReferences[0].Version)
+	assert.Equal(t, "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+		result.MappingReferences[0].Url)
+	assert.Equal(t, "cis-k8s", result.MappingReferences[1].Id)
+}
+
+func TestExtractFromGemaraPolicy_NoMappingReferences(t *testing.T) {
+	var p gemara.Policy
+	err := yaml.Unmarshal(validPolicyYAML(), &p)
+	require.NoError(t, err)
+
+	result := extractFromGemaraPolicy(&p)
+	assert.Nil(t, result.MappingReferences)
+}
+
+func TestResolvePolicyGraph_SplitGraph_MappingReferencesPropagated(t *testing.T) {
+	ml := newMockLoader()
+	ml.exists["test-policy/v1"] = true
+
+	ml.layers["test-policy/v1/application/vnd.gemara.policy.v1+yaml"] =
+		validPolicyYAMLWithMappingRefs()
+
+	r := NewResolver(ml)
+	graph, err := r.ResolvePolicyGraph("test-policy", "v1")
+	require.NoError(t, err)
+	require.Len(t, graph.MappingReferences, 2)
+	assert.Equal(t, "nist-800-53", graph.MappingReferences[0].Id)
+	assert.Equal(t, "cis-k8s", graph.MappingReferences[1].Id)
+}
+
+func TestResolvePolicyGraph_BundleGraph_MappingReferencesPropagated(t *testing.T) {
+	ml := newMockLoader()
+	ml.exists["test-policy/v1"] = true
+	ml.bundleShape["test-policy/v1"] = true
+	ml.bundleFiles["test-policy/v1"] = map[string][]byte{
+		"Policy": validPolicyYAMLWithMappingRefs(),
+	}
+
+	r := NewResolver(ml)
+	graph, err := r.ResolvePolicyGraph("test-policy", "v1")
+	require.NoError(t, err)
+	require.Len(t, graph.MappingReferences, 2)
+	assert.Equal(t, "nist-800-53", graph.MappingReferences[0].Id)
+	assert.Equal(t, "cis-k8s", graph.MappingReferences[1].Id)
+}
+
+func TestResolvePolicyGraph_NoMappingReferences(t *testing.T) {
+	ml := newMockLoader()
+	ml.exists["test-policy/v1"] = true
+
+	ml.layers["test-policy/v1/application/vnd.gemara.policy.v1+yaml"] =
+		validPolicyYAML()
+
+	r := NewResolver(ml)
+	graph, err := r.ResolvePolicyGraph("test-policy", "v1")
+	require.NoError(t, err)
+	assert.Nil(t, graph.MappingReferences)
 }

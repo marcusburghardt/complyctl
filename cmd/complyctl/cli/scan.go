@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gemaraproj/go-gemara"
 	"github.com/spf13/cobra"
 
 	"github.com/complytime/complyctl/internal/cache"
@@ -434,17 +435,17 @@ func runScanAndReport(ctx context.Context, format, logFormat string, mgr *provid
 	}
 
 	resolveAssessmentIDs(scanOut.assessments, planToReq)
-	return processScanOutput(format, logFormat, scanOut, repository, &mappings, policyTargets, eid, targetIDs, baseDir, showPassing)
+	return processScanOutput(format, logFormat, scanOut, repository, &mappings, graph.MappingReferences, policyTargets, eid, targetIDs, baseDir, showPassing)
 }
 
 // processScanOutput handles post-scan output: prints operational warnings to
 // stderr, writes evaluation reports, and returns an error when operational
 // failures are present (triggering non-zero exit). Reports are always written
 // before the error return so partial results remain available.
-func processScanOutput(format, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
+func processScanOutput(format, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
 	reportOperationalWarnings(scanOut.errors)
 
-	evaluators := buildEvaluators(repository, mappings, policyTargets, scanOut.assessments, scanOut.assessmentTargets)
+	evaluators := buildEvaluators(repository, mappings, mappingRefs, policyTargets, scanOut.assessments, scanOut.assessmentTargets)
 
 	outDir := filepath.Join(baseDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
 	for _, eval := range evaluators {
@@ -494,10 +495,10 @@ func checkNothingAssessed(assessments []provider.AssessmentLog) error {
 	return nil
 }
 
-func buildEvaluators(repository string, mappings *resolvedMappings, policyTargets []complytime.TargetConfig, allAssessments []provider.AssessmentLog, assessmentTargets []string) []*output.Evaluator {
+func buildEvaluators(repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, allAssessments []provider.AssessmentLog, assessmentTargets []string) []*output.Evaluator {
 	evaluators := make([]*output.Evaluator, 0, len(policyTargets))
 	for _, target := range policyTargets {
-		eval := output.NewEvaluator(repository, target.ID, mappings.reqToControl, mappings.reqToPlan, mappings.reqToComplypackRef)
+		eval := output.NewEvaluator(repository, target.ID, mappings.reqToControl, mappings.reqToPlan, mappings.reqToComplypackRef, mappingRefs)
 		var targetAssessments []provider.AssessmentLog
 		for j, a := range allAssessments {
 			if assessmentTargets[j] == target.ID {

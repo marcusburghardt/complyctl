@@ -26,6 +26,7 @@ type Evaluator struct {
 	reqToControl       map[string]string
 	reqToPlan          map[string]string
 	reqToComplypackRef map[string]string
+	mappingReferences  []gemara.MappingReference
 	controlEvals       map[string]*gemara.ControlEvaluation
 	controlOrder       []string
 	// controlStepNames tracks step name strings parallel to each control's
@@ -42,19 +43,28 @@ func defaultMap(m map[string]string) map[string]string {
 	return m
 }
 
-// NewEvaluator creates an Evaluator scoped to a single target. reqToControl
-// maps requirement IDs to control IDs; pass nil when the catalog is unavailable.
-// reqToPlan maps requirement IDs to assessment plan IDs for populating the Plan
-// field; pass nil when unavailable. reqToComplypackRef maps requirement IDs
-// directly to OCI references (repository@digest) for step identity; pass nil
-// when no complypacks are configured.
-func NewEvaluator(policyID, targetID string, reqToControl, reqToPlan, reqToComplypackRef map[string]string) *Evaluator {
+// NewEvaluator creates an Evaluator scoped to a single target.
+//
+// Parameters:
+//   - reqToControl: maps requirement IDs to control IDs; pass nil when the
+//     catalog is unavailable.
+//   - reqToPlan: maps requirement IDs to assessment plan IDs for populating
+//     the Plan field; pass nil when unavailable.
+//   - reqToComplypackRef: maps requirement IDs directly to OCI references
+//     (repository@digest) for step identity; pass nil when no complypacks
+//     are configured.
+//   - mappingReferences: policy-level mapping references propagated into
+//     the EvaluationLog metadata so downstream consumers (OSCAL BackMatter,
+//     evidence source cross-references) can resolve reference IDs found in
+//     evidence source entries; pass nil when the policy has none.
+func NewEvaluator(policyID, targetID string, reqToControl, reqToPlan, reqToComplypackRef map[string]string, mappingReferences []gemara.MappingReference) *Evaluator {
 	return &Evaluator{
 		policyID:           policyID,
 		targetID:           targetID,
 		reqToControl:       defaultMap(reqToControl),
 		reqToPlan:          defaultMap(reqToPlan),
 		reqToComplypackRef: defaultMap(reqToComplypackRef),
+		mappingReferences:  mappingReferences,
 		controlEvals:       make(map[string]*gemara.ControlEvaluation),
 		controlStepNames:   make(map[string][][]string),
 	}
@@ -118,10 +128,11 @@ func (e *Evaluator) GemaraLog() *gemara.EvaluationLog {
 		Evaluations: evals,
 		Result:      result,
 		Metadata: gemara.Metadata{
-			Id:            e.policyID,
-			Type:          gemara.EvaluationLogArtifact,
-			GemaraVersion: gemara.SchemaVersion,
-			Description:   "Compliance scan evaluation log",
+			Id:                e.policyID,
+			Type:              gemara.EvaluationLogArtifact,
+			GemaraVersion:     gemara.SchemaVersion,
+			Description:       "Compliance scan evaluation log",
+			MappingReferences: e.mappingReferences,
 			Author: gemara.Actor{
 				Id:   "complytime",
 				Name: "complytime",
@@ -224,6 +235,18 @@ func (e *Evaluator) providerToGemaraAssessment(a *provider.AssessmentLog) (*gema
 				Description: ev.Description,
 				Payload:     payloadToString(ev.Payload),
 				CollectedAt: gemara.Datetime(ev.CollectedAt),
+			}
+			// Map provider EvidenceSource to gemara EvidenceMapping when present.
+			// When Source is nil, leave the gemara field at zero value so
+			// goccy/go-yaml omits it via omitempty (design decision D3).
+			if ev.Source != nil {
+				gemaraEvidence[i].Source = gemara.EvidenceMapping{
+					ReferenceId: ev.Source.ReferenceID,
+					Coordinate:  ev.Source.Coordinate,
+					EntryId:     ev.Source.EntryID,
+					Digest:      ev.Source.Digest,
+					Remarks:     ev.Source.Remarks,
+				}
 			}
 		}
 		gemaraLog.Evidence = gemaraEvidence
