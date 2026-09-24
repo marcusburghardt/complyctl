@@ -68,11 +68,19 @@ _(none -- no existing spec-level behavior changes)_
   gains a 4th return value; `scanOutput` gains a
   `mappingReferences` field; `processScanOutput()` gains merge logic
   before `buildEvaluators()`.
-- **Output** (`internal/output/`): No changes -- `NewEvaluator` already
-  accepts `[]gemara.MappingReference` regardless of source.
+- **Output evaluator** (`internal/output/evaluator.go`): No changes --
+  `NewEvaluator` already accepts `[]gemara.MappingReference` regardless
+  of source.
+- **Output scan summary** (`internal/output/scan_summary.go`): New
+  `MergeMappingReferences()` and `FormatMappingCollisions()` functions
+  for dedup and collision formatting (D7).
+- **Provider manager** (`pkg/provider/manager.go`): `ScanResult` gains
+  `MappingReferences` field; `RouteScanResult()` updated to populate it
+  from `ScanResponse` in both targeted and broadcast code paths.
 - **Cross-repo**: Provider-side adoption (populating the new field)
   tracked separately in complytime-providers.
 - **Follow-up**: Rendering `MappingReferences` in report formats
-  (Markdown, SARIF, OSCAL) is a separate follow-up issue -- applies
-  equally to Direction A and B references. Currently these references
-  are only visible in the raw EvaluationLog YAML/JSON.
+  (Markdown, SARIF, OSCAL) is deferred to a separate follow-up issue
+  (to be filed after implementation). Applies equally to Direction A
+  and B references. Currently these references are only visible in
+  the raw EvaluationLog YAML/JSON.

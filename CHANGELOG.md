@@ -11,6 +11,14 @@
   Markdown). Duplicate values are rejected. Formatter failures use
   partial-success semantics: warnings printed to stderr, remaining
   formats still produced. (#890)
+- Provider-side mapping references: providers can now supply
+  `MappingReference` entries (id, title, version, description, url)
+  via the new `mapping_references` field on `ScanResponse`. When
+  policy and provider sources declare a mapping reference with the
+  same ID, the policy-sourced entry is retained and a collision
+  warning is emitted to stderr, the debug log, and the
+  EvaluationLog Description annotation. Backward-compatible --
+  providers that do not send mapping references are unaffected.
 - Evidence source provenance via `EvidenceMapping`: providers can now
   report **where** evidence was collected from using the new `source`
   field on the proto `Evidence` message (field 6). New `EvidenceSource`
