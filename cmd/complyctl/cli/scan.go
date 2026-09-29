@@ -28,7 +28,7 @@ type scanOptions struct {
 	showPassing bool
 	target      string
 	policyID    string
-	format      string
+	formats     []string
 	logFormat   string
 	timeout     time.Duration
 	cacheDir    string
@@ -71,12 +71,14 @@ EXIT CODES:
   # Scan all targets for a policy (backward compatible)
   complyctl scan --policy-id nist-800-53-r5
 
-  # Scan with output format
-  complyctl scan prod --policy-id nist-800-53-r5 --format pretty
-  complyctl scan --policy-id nist-800-53-r5 --format oscal
+  # Scan with a single output format
+  complyctl scan --policy-id nist-800-53-r5 --format pretty
 
-  # Scan with SARIF output
-  complyctl scan prod --policy-id nist-800-53-r5 --format sarif`,
+  # Scan with multiple output formats
+  complyctl scan --policy-id nist-800-53-r5 --format oscal,sarif
+
+  # Scan with all output formats (OSCAL, SARIF, Markdown)
+  complyctl scan --policy-id nist-800-53-r5 --format all`,
 		SilenceUsage:      true,
 		Args:              cobra.MaximumNArgs(1),
 		ValidArgsFunction: completeTargetIDs,
@@ -113,7 +115,7 @@ EXIT CODES:
 		},
 	}
 	cmd.Flags().StringVarP(&o.policyID, "policy-id", "p", "", "Policy ID to scan (see complyctl list)")
-	cmd.Flags().StringVarP(&o.format, "format", "f", "", "Output format: oscal, pretty, sarif")
+	cmd.Flags().StringSliceVarP(&o.formats, "format", "f", nil, "Output format(s): oscal, pretty, sarif, all (comma-separated or repeated)")
 	cmd.Flags().DurationVarP(&o.timeout, "timeout", "t", complytime.DefaultCommandTimeout, "Maximum time for the scan operation (e.g. 5m, 10m, 1h)")
 	cmd.Flags().BoolVar(&o.showPassing, "show-passing", true,
 		fmt.Sprintf("Include passing controls in scan summary table (env: %s)", complytime.ShowPassingEnvVar))
@@ -126,7 +128,7 @@ EXIT CODES:
 		logger.Error("Failed to register log-format completion", "error", err)
 	}
 	if err := cmd.RegisterFlagCompletionFunc("format", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{complytime.OutputFormatOSCAL, complytime.OutputFormatPretty, complytime.OutputFormatSARIF}, cobra.ShellCompDirectiveNoFileComp
+		return []string{complytime.OutputFormatOSCAL, complytime.OutputFormatPretty, complytime.OutputFormatSARIF, complytime.OutputFormatAll}, cobra.ShellCompDirectiveNoFileComp
 	}); err != nil {
 		logger.Error("Failed to register format completion", "error", err)
 	}
@@ -185,15 +187,58 @@ func validateLogFormat(logFormat string) error {
 	}
 }
 
+// allConcreteFormats is the expansion of OutputFormatAll. This slice is
+// effectively immutable — callers MUST copy before modification (see validate).
+var allConcreteFormats = []string{
+	complytime.OutputFormatOSCAL,
+	complytime.OutputFormatPretty,
+	complytime.OutputFormatSARIF,
+}
+
 func (o *scanOptions) validate() error {
-	if o.format != "" {
-		switch o.format {
-		case complytime.OutputFormatOSCAL, complytime.OutputFormatPretty, complytime.OutputFormatSARIF:
+	if len(o.formats) == 0 {
+		return nil
+	}
+
+	// Reject "all" combined with specific formats.
+	if slices.Contains(o.formats, complytime.OutputFormatAll) {
+		if len(o.formats) > 1 {
+			return fmt.Errorf(
+				"format %q cannot be combined with specific format values",
+				complytime.OutputFormatAll,
+			)
+		}
+		o.formats = append([]string{}, allConcreteFormats...)
+		return nil
+	}
+
+	// Reject unknown format values.
+	for _, f := range o.formats {
+		switch f {
+		case complytime.OutputFormatOSCAL,
+			complytime.OutputFormatPretty,
+			complytime.OutputFormatSARIF:
 		default:
-			return fmt.Errorf("invalid format %q: must be one of %s, %s, %s",
-				o.format, complytime.OutputFormatOSCAL, complytime.OutputFormatPretty, complytime.OutputFormatSARIF)
+			return fmt.Errorf(
+				"invalid format %q: must be one of %s, %s, %s, %s",
+				f,
+				complytime.OutputFormatOSCAL,
+				complytime.OutputFormatPretty,
+				complytime.OutputFormatSARIF,
+				complytime.OutputFormatAll,
+			)
 		}
 	}
+
+	// Reject duplicate format values.
+	seen := make(map[string]bool, len(o.formats))
+	for _, f := range o.formats {
+		if seen[f] {
+			return fmt.Errorf("duplicate format %q", f)
+		}
+		seen[f] = true
+	}
+
 	return nil
 }
 
@@ -354,7 +399,7 @@ func (o *scanOptions) scanPolicy(ctx context.Context, cfg *complytime.WorkspaceC
 	fmt.Println(output.FormatPreScanSummary(len(assessmentConfigs), evaluatorIDs, targetIDs))
 
 	reqToComplypackRef := buildReqToComplypackRef(o.dataDir, groups)
-	return runScanAndReport(ctx, o.format, o.logFormat, mgr, groups, reqToComplypackRef, policyTargets, ref.Repository, eid, graph, targetIDs, baseDir, o.showPassing)
+	return runScanAndReport(ctx, o.formats, o.logFormat, mgr, groups, reqToComplypackRef, policyTargets, ref.Repository, eid, graph, targetIDs, baseDir, o.showPassing)
 }
 
 func resolveVersionAndGraph(cacheDir string, ref complytime.PolicyRef) (string, *policy.DependencyGraph, error) {
@@ -421,7 +466,7 @@ func ensureGenerated(ctx context.Context, cacheDir, dataDir, baseDir string, mgr
 // runScanAndReport executes the scan across all targets and processes the
 // combined output (reports + error checking). It delegates post-scan handling
 // to processScanOutput.
-func runScanAndReport(ctx context.Context, format, logFormat string, mgr *provider.Manager, groups map[string]policy.EvaluatorGroup, reqToComplypackRef map[string]string, policyTargets []complytime.TargetConfig, repository, eid string, graph *policy.DependencyGraph, targetIDs []string, baseDir string, showPassing bool) error {
+func runScanAndReport(ctx context.Context, formats []string, logFormat string, mgr *provider.Manager, groups map[string]policy.EvaluatorGroup, reqToComplypackRef map[string]string, policyTargets []complytime.TargetConfig, repository, eid string, graph *policy.DependencyGraph, targetIDs []string, baseDir string, showPassing bool) error {
 	planToReq := extractPlanToReqMap(graph)
 	mappings := resolvedMappings{
 		reqToControl:       extractReqToControlMap(graph),
@@ -435,21 +480,21 @@ func runScanAndReport(ctx context.Context, format, logFormat string, mgr *provid
 	}
 
 	resolveAssessmentIDs(scanOut.assessments, planToReq)
-	return processScanOutput(format, logFormat, scanOut, repository, &mappings, graph.MappingReferences, policyTargets, eid, targetIDs, baseDir, showPassing)
+	return processScanOutput(formats, logFormat, scanOut, repository, &mappings, graph.MappingReferences, policyTargets, eid, targetIDs, baseDir, showPassing)
 }
 
 // processScanOutput handles post-scan output: prints operational warnings to
 // stderr, writes evaluation reports, and returns an error when operational
 // failures are present (triggering non-zero exit). Reports are always written
 // before the error return so partial results remain available.
-func processScanOutput(format, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
+func processScanOutput(formats []string, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
 	reportOperationalWarnings(scanOut.errors)
 
 	evaluators := buildEvaluators(repository, mappings, mappingRefs, policyTargets, scanOut.assessments, scanOut.assessmentTargets)
 
 	outDir := filepath.Join(baseDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
 	for _, eval := range evaluators {
-		if err := writeScanReports(format, logFormat, eval, outDir, repository); err != nil {
+		if err := writeScanReports(formats, logFormat, eval, outDir, repository); err != nil {
 			return err
 		}
 	}
@@ -713,30 +758,42 @@ func scanSingleTarget(ctx context.Context, mgr *provider.Manager, groups map[str
 	return results, operationalErrors, nil
 }
 
-func writeScanReports(format, logFormat string, eval *output.Evaluator, outDir, repository string) error {
+func writeScanReports(formats []string, logFormat string, eval *output.Evaluator, outDir, repository string) error {
 	logPath, err := eval.Write(outDir, logFormat)
 	if err != nil {
 		return fmt.Errorf("failed to write evaluation log: %w", err)
 	}
 	fmt.Printf("Evaluation log written: %s [target: %s]\n", logPath, eval.TargetID())
 
-	if err := writeFormatReport(format, eval, logPath, outDir, repository); err != nil {
-		return err
-	}
+	writeFormatReports(formats, eval, logPath, outDir, repository)
 
 	return nil
 }
 
-func writeFormatReport(format string, eval *output.Evaluator, logPath, outDir, repository string) error {
-	switch format {
-	case complytime.OutputFormatPretty:
-		return writePrettyReport(eval, logPath, outDir, repository)
-	case complytime.OutputFormatSARIF:
-		return writeSARIFReport(eval, outDir)
-	case complytime.OutputFormatOSCAL:
-		return writeOSCALReport(eval, outDir)
+// writeFormatReports iterates over requested formats, calling the per-format
+// writer for each. Errors are collected as warnings and printed to stderr
+// rather than aborting the scan — secondary reports are best-effort outputs
+// derived from the EvaluationLog (which is already written).
+func writeFormatReports(formats []string, eval *output.Evaluator, logPath, outDir, repository string) {
+	var warnings []string
+	for _, f := range formats {
+		var err error
+		switch f {
+		case complytime.OutputFormatPretty:
+			err = writePrettyReport(eval, logPath, outDir, repository)
+		case complytime.OutputFormatSARIF:
+			err = writeSARIFReport(eval, outDir)
+		case complytime.OutputFormatOSCAL:
+			err = writeOSCALReport(eval, outDir)
+		}
+		if err != nil {
+			warnings = append(warnings,
+				fmt.Sprintf("warning: %s formatter failed: %v", f, err))
+		}
 	}
-	return nil
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, w)
+	}
 }
 
 func writePrettyReport(eval *output.Evaluator, logPath, outDir, repository string) error {

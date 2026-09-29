@@ -29,9 +29,13 @@ const (
 	OutputFormatOSCAL  = "oscal"
 	OutputFormatPretty = "pretty"
 	OutputFormatSARIF  = "sarif"
-	OutputFormatText   = "text"
-	OutputFormatJSON   = "json"
-	OutputFormatHuman  = "human"
+	// OutputFormatAll is a scan-only convenience value that expands to all
+	// secondary report formats (OSCAL, Pretty, SARIF). It is not valid for
+	// doctor --format, which uses mutually exclusive rendering modes.
+	OutputFormatAll   = "all"
+	OutputFormatText  = "text"
+	OutputFormatJSON  = "json"
+	OutputFormatHuman = "human"
 )
 
 // ShowPassingEnvVar is the environment variable that controls whether

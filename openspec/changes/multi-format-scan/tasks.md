@@ -2,10 +2,13 @@
 
 ## 1. Constants and Flag Type
 
-- [ ] 1.1 Add `OutputFormatAll = "all"` constant to
+- [x] 1.1 Add `OutputFormatAll = "all"` constant to
   `internal/complytime/consts.go` alongside the existing
-  `OutputFormat*` constants. Verify `make vet` passes.
-- [ ] 1.2 Change `scanOptions.format` field from `string` to
+  `OutputFormat*` constants. Include a doc comment clarifying
+  scan-only scope: `// OutputFormatAll is a scan-only convenience
+  value that expands to all secondary report formats (OSCAL,
+  Pretty, SARIF).` Verify `make vet` passes.
+- [x] 1.2 Change `scanOptions.format` field from `string` to
   `[]string` in `cmd/complyctl/cli/scan.go`. Change flag
   registration from `StringVarP` to `StringSliceVarP`. Update
   flag help text to `"Output format(s): oscal, pretty, sarif,
@@ -15,7 +18,7 @@
 
 ## 2. Validation
 
-- [ ] 2.1 Rewrite `(o *scanOptions).validate()` to iterate over
+- [x] 2.1 Rewrite `(o *scanOptions).validate()` to iterate over
   the `[]string` slice: reject unknown values, reject duplicates,
   and expand `all` to all concrete formats. Reject `all` combined
   with specific values. Verify with unit tests covering: single
@@ -25,19 +28,19 @@
 
 ## 3. Call Chain Signature Update
 
-- [ ] 3.1 Update `runScanAndReport` signature to accept
+- [x] 3.1 Update `runScanAndReport` signature to accept
   `formats []string` instead of `format string`. Thread the
   slice to `processScanOutput`. Verify `make build` compiles.
-- [ ] 3.2 Update `processScanOutput` signature to accept
+- [x] 3.2 Update `processScanOutput` signature to accept
   `formats []string`. Thread to `writeScanReports`. Verify
   `make build` compiles.
-- [ ] 3.3 Update `writeScanReports` signature to accept
+- [x] 3.3 Update `writeScanReports` signature to accept
   `formats []string`. Thread to `writeFormatReports`. Verify
   `make build` compiles.
 
 ## 4. Multi-Format Dispatch with Partial Success
 
-- [ ] 4.1 Replace `writeFormatReport` (single format) with
+- [x] 4.1 Replace `writeFormatReport` (single format) with
   `writeFormatReports` (format slice). Loop over each format,
   call the existing per-format helpers (`writePrettyReport`,
   `writeSARIFReport`, `writeOSCALReport`). On error, collect
@@ -50,9 +53,21 @@
 
 ## 5. Integration Verification
 
-- [ ] 5.1 Run `make test-unit` and verify all existing tests
+- [x] 5.1 Run `make test-unit` and verify all existing tests
   pass with the refactored signatures.
-- [ ] 5.2 Run `make lint` and verify zero lint issues.
-- [ ] 5.3 Run `make build` and manually verify:
+- [x] 5.2 Run `make lint` and verify zero lint issues.
+- [x] 5.3 Run `make build` and manually verify:
   `./bin/complyctl scan --help` shows the updated `--format`
   flag description.
+- [x] 5.4 Write E2E test(s) (build tag `e2e`) covering:
+  multi-format invocation (`--format oscal,sarif`),
+  `--format all` expansion, and single-format backward
+  compatibility. Verify with `make test-e2e`.
+- [x] 5.5 Update `docs/QUICK_START.md` scan examples to show
+  multi-format usage (`--format oscal,sarif`) and
+  `--format all`. Update `docs/man/complyctl.md` `--format`
+  description to reflect multi-value and `all` support.
+  Verify no stale single-format-only language remains.
+
+<!-- spec-review: passed -->
+<!-- code-review: passed -->

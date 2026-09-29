@@ -355,6 +355,79 @@ targets:
 	})
 }
 
+// TestE2E_ScanMultiFormat verifies that multiple --format values produce all
+// requested reports in a single invocation.
+func TestE2E_ScanMultiFormat(t *testing.T) {
+	binary := locateBinary(t)
+	srv := startMockRegistry(t)
+	defer srv.Close()
+
+	homeDir := t.TempDir()
+	workDir := t.TempDir()
+	installTestPlugin(t, homeDir)
+	writeWorkspaceConfig(t, workDir, srv.URL, testPolicyID)
+	env := buildEnv(homeDir)
+
+	runComplytime(t, binary, workDir, env, "get")
+
+	t.Run("comma_separated", func(t *testing.T) {
+		scanDir := filepath.Join(workDir, "scan-multi")
+		require.NoError(t, os.MkdirAll(scanDir, 0755))
+		copyWorkspaceConfig(t, workDir, scanDir)
+
+		out := runComplytime(t, binary, scanDir, env,
+			"scan", "--policy-id", testPolicyID, "--format", "oscal,sarif")
+		t.Log(out)
+		assert.Contains(t, out, "requirements:")
+
+		evalDir := filepath.Join(scanDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
+		assertOutputFile(t, evalDir, "evaluation-log-", ".yaml")
+		assertOutputFile(t, evalDir, "assessment-results-", ".json")
+		assertOutputFile(t, evalDir, "scan-", ".json")
+	})
+
+	t.Run("format_all", func(t *testing.T) {
+		scanDir := filepath.Join(workDir, "scan-all")
+		require.NoError(t, os.MkdirAll(scanDir, 0755))
+		copyWorkspaceConfig(t, workDir, scanDir)
+
+		out := runComplytime(t, binary, scanDir, env,
+			"scan", "--policy-id", testPolicyID, "--format", "all")
+		t.Log(out)
+		assert.Contains(t, out, "requirements:")
+
+		evalDir := filepath.Join(scanDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
+		assertOutputFile(t, evalDir, "evaluation-log-", ".yaml")
+		assertOutputFile(t, evalDir, "assessment-results-", ".json")
+		assertOutputFile(t, evalDir, "report-", ".md")
+		assertOutputFile(t, evalDir, "scan-", ".json")
+	})
+
+	t.Run("single_format_backward_compat", func(t *testing.T) {
+		scanDir := filepath.Join(workDir, "scan-single")
+		require.NoError(t, os.MkdirAll(scanDir, 0755))
+		copyWorkspaceConfig(t, workDir, scanDir)
+
+		out := runComplytime(t, binary, scanDir, env,
+			"scan", "--policy-id", testPolicyID, "--format", "oscal")
+		t.Log(out)
+		assert.Contains(t, out, "requirements:")
+
+		evalDir := filepath.Join(scanDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
+		assertOutputFile(t, evalDir, "evaluation-log-", ".yaml")
+		assertOutputFile(t, evalDir, "assessment-results-", ".json")
+
+		// Verify no other format files exist
+		entries, err := os.ReadDir(evalDir)
+		require.NoError(t, err)
+		for _, e := range entries {
+			name := e.Name()
+			assert.False(t, strings.HasPrefix(name, "report-"),
+				"Markdown output must not exist when only oscal requested")
+		}
+	})
+}
+
 // TestE2E_InvalidFormat verifies invalid scan format is rejected.
 func TestE2E_InvalidFormat(t *testing.T) {
 	binary := locateBinary(t)

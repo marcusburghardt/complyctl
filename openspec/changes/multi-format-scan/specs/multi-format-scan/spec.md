@@ -81,8 +81,11 @@ formatter failures.
 - **WHEN** user runs `complyctl scan --format oscal,sarif` and
   the SARIF formatter encounters an error
 - **THEN** the system writes the EvaluationLog and the OSCAL
-  report, prints a warning about the SARIF failure to stderr,
-  and exits with the same code it would without `--format`
+  report, prints a warning about the SARIF failure to stderr
+  (warning messages SHALL include the format name and the
+  underlying error, e.g., `warning: sarif formatter failed:
+  <error>`), and exits with the same code it would without
+  `--format`
 
 ### Requirement: Shell completion includes all
 

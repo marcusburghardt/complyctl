@@ -105,15 +105,19 @@ Output is written to \f[B].complytime/scan/\f[R].
 complyctl scan \-\-policy\-id my\-policy
 complyctl scan my\-target
 complyctl scan my\-target \-\-policy\-id my\-policy \-\-format pretty
+complyctl scan \-\-policy\-id my\-policy \-\-format oscal,sarif
+complyctl scan \-\-policy\-id my\-policy \-\-format all
 complyctl scan \-\-policy\-id my\-policy \-\-log\-format json
 .EE
 .TP
 \f[B]\-p\f[R], \f[B]\(enpolicy\-id\f[R] \f[I]string\f[R]
 Policy ID to scan.
 .TP
-\f[B]\-f\f[R], \f[B]\(enformat\f[R] \f[I]string\f[R]
-Additional output format: \f[B]oscal\f[R], \f[B]pretty\f[R] (Markdown),
-\f[B]sarif\f[R].
+\f[B]\-f\f[R], \f[B]\(enformat\f[R] \f[I]strings\f[R]
+Additional output format(s): \f[B]oscal\f[R], \f[B]pretty\f[R]
+(Markdown), \f[B]sarif\f[R], \f[B]all\f[R] (all three).
+Accepts comma\-separated values (\f[CR]\-\-format oscal,sarif\f[R]) or
+repeated flags (\f[CR]\-\-format oscal \-\-format sarif\f[R]).
 The default EvaluationLog is always produced regardless of this flag.
 .TP
 \f[B]\-t\f[R], \f[B]\(entimeout\f[R] \f[I]duration\f[R]
