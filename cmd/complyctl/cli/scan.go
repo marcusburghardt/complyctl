@@ -89,6 +89,7 @@ EXIT CODES:
 			if err := o.validate(); err != nil {
 				return err
 			}
+			o.resolveFormats()
 			if err := o.complete(); err != nil {
 				return err
 			}
@@ -200,6 +201,16 @@ func (o *scanOptions) validate() error {
 		return nil
 	}
 
+	// Reject duplicate format values first so that --format all,all
+	// reports "duplicate" rather than the misleading "cannot combine".
+	seen := make(map[string]bool, len(o.formats))
+	for _, f := range o.formats {
+		if seen[f] {
+			return fmt.Errorf("duplicate format %q", f)
+		}
+		seen[f] = true
+	}
+
 	// Reject "all" combined with specific formats.
 	if slices.Contains(o.formats, complytime.OutputFormatAll) {
 		if len(o.formats) > 1 {
@@ -208,7 +219,6 @@ func (o *scanOptions) validate() error {
 				complytime.OutputFormatAll,
 			)
 		}
-		o.formats = append([]string{}, allConcreteFormats...)
 		return nil
 	}
 
@@ -230,16 +240,15 @@ func (o *scanOptions) validate() error {
 		}
 	}
 
-	// Reject duplicate format values.
-	seen := make(map[string]bool, len(o.formats))
-	for _, f := range o.formats {
-		if seen[f] {
-			return fmt.Errorf("duplicate format %q", f)
-		}
-		seen[f] = true
-	}
-
 	return nil
+}
+
+// resolveFormats expands the "all" shorthand to concrete format values.
+// Must be called after validate().
+func (o *scanOptions) resolveFormats() {
+	if len(o.formats) == 1 && o.formats[0] == complytime.OutputFormatAll {
+		o.formats = append([]string{}, allConcreteFormats...)
+	}
 }
 
 func (o *scanOptions) complete() error {
@@ -484,9 +493,9 @@ func runScanAndReport(ctx context.Context, formats []string, logFormat string, m
 }
 
 // processScanOutput handles post-scan output: prints operational warnings to
-// stderr, writes evaluation reports, and returns an error when operational
-// failures are present (triggering non-zero exit). Reports are always written
-// before the error return so partial results remain available.
+// stderr, writes the mandatory EvaluationLog, and attempts secondary format
+// reports on a best-effort basis. Returns an error when operational failures
+// are present (triggering non-zero exit).
 func processScanOutput(formats []string, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
 	reportOperationalWarnings(scanOut.errors)
 
@@ -785,6 +794,10 @@ func writeFormatReports(formats []string, eval *output.Evaluator, logPath, outDi
 			err = writeSARIFReport(eval, outDir)
 		case complytime.OutputFormatOSCAL:
 			err = writeOSCALReport(eval, outDir)
+		default:
+			warnings = append(warnings,
+				fmt.Sprintf("warning: unsupported format %q (skipped)", f))
+			continue
 		}
 		if err != nil {
 			warnings = append(warnings,
