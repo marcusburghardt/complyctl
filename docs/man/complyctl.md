@@ -114,14 +114,18 @@ Output is written to **.complytime/scan/**.
 complyctl scan --policy-id my-policy
 complyctl scan my-target
 complyctl scan my-target --policy-id my-policy --format pretty
+complyctl scan --policy-id my-policy --format oscal,sarif
+complyctl scan --policy-id my-policy --format all
 complyctl scan --policy-id my-policy --log-format json
 ```
 
 **-p**, **--policy-id** *string*
 : Policy ID to scan.
 
-**-f**, **--format** *string*
-: Additional output format: **oscal**, **pretty** (Markdown), **sarif**.
+**-f**, **--format** *strings*
+: Additional output format(s): **oscal**, **pretty** (Markdown), **sarif**,
+  **all** (all three). Accepts comma-separated values
+  (`--format oscal,sarif`) or repeated flags (`--format oscal --format sarif`).
   The default EvaluationLog is always produced regardless of this flag.
 
 **-t**, **--timeout** *duration*

@@ -297,6 +297,12 @@ complyctl scan --policy-id ampel-bp --format oscal
 
 # SARIF
 complyctl scan --policy-id ampel-bp --format sarif
+
+# Multiple formats in one invocation
+complyctl scan --policy-id ampel-bp --format oscal,sarif
+
+# All formats at once
+complyctl scan --policy-id ampel-bp --format all
 ```
 
 Or scan a single target (policy is inferred when the target has exactly one):

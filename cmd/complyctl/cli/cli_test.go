@@ -21,6 +21,7 @@ import (
 	"github.com/complytime/complyctl/internal/cache"
 	"github.com/complytime/complyctl/internal/cache/cachetest"
 	"github.com/complytime/complyctl/internal/complytime"
+	"github.com/complytime/complyctl/internal/output"
 	"github.com/complytime/complyctl/internal/policy"
 	"github.com/complytime/complyctl/internal/terminal"
 	"github.com/complytime/complyctl/internal/version"
@@ -97,17 +98,59 @@ func TestScanOptions_Run_PolicyNotFound(t *testing.T) {
 }
 
 func TestScanOptions_Validate_InvalidFormat(t *testing.T) {
-	o := &scanOptions{format: "xml"}
+	o := &scanOptions{formats: []string{"xml"}}
 	err := o.validate()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid format")
 }
 
 func TestScanOptions_Validate_ValidFormats(t *testing.T) {
-	for _, f := range []string{"", "oscal", "pretty", "sarif"} {
-		o := &scanOptions{format: f}
-		assert.NoError(t, o.validate(), "format %q should be valid", f)
+	for _, tc := range []struct {
+		name    string
+		formats []string
+	}{
+		{"empty", nil},
+		{"oscal", []string{"oscal"}},
+		{"pretty", []string{"pretty"}},
+		{"sarif", []string{"sarif"}},
+		{"multiple", []string{"oscal", "sarif"}},
+		{"all_three", []string{"oscal", "pretty", "sarif"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &scanOptions{formats: tc.formats}
+			assert.NoError(t, o.validate(), "formats %v should be valid", tc.formats)
+		})
 	}
+}
+
+func TestScanOptions_ResolveFormats_AllExpansion(t *testing.T) {
+	o := &scanOptions{formats: []string{"all"}}
+	require.NoError(t, o.validate())
+	o.resolveFormats()
+	assert.ElementsMatch(t, []string{"oscal", "pretty", "sarif"}, o.formats,
+		"all should expand to all concrete formats")
+}
+
+func TestScanOptions_Validate_AllWithSpecificFormat(t *testing.T) {
+	o := &scanOptions{formats: []string{"all", "oscal"}}
+	err := o.validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be combined")
+}
+
+func TestScanOptions_Validate_DuplicateFormat(t *testing.T) {
+	o := &scanOptions{formats: []string{"oscal", "oscal"}}
+	err := o.validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate format")
+}
+
+func TestScanOptions_Validate_DuplicateAll(t *testing.T) {
+	o := &scanOptions{formats: []string{"all", "all"}}
+	err := o.validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate format",
+		"duplicate all should report 'duplicate' not 'cannot be combined'")
 }
 
 func TestValidateLogFormat_ValidValues(t *testing.T) {
@@ -1228,7 +1271,7 @@ func TestProcessScanOutput_NoErrors_ReturnsNil(t *testing.T) {
 		reqToControl: map[string]string{"req-1": "ctrl-1"},
 	}
 
-	err = processScanOutput("", "yaml", scanOut, "test-repo", mappings, nil, policyTargets, "test-policy", []string{"target-1"}, tmpDir, true)
+	err = processScanOutput(nil, "yaml", scanOut, "test-repo", mappings, nil, policyTargets, "test-policy", []string{"target-1"}, tmpDir, true)
 	assert.NoError(t, err)
 }
 
@@ -1259,10 +1302,156 @@ func TestProcessScanOutput_WithErrors_ReturnsError(t *testing.T) {
 		reqToControl: map[string]string{"req-1": "ctrl-1"},
 	}
 
-	err = processScanOutput("", "yaml", scanOut, "test-repo", mappings, nil, policyTargets, "test-policy", []string{"target-1"}, tmpDir, true)
+	err = processScanOutput(nil, "yaml", scanOut, "test-repo", mappings, nil, policyTargets, "test-policy", []string{"target-1"}, tmpDir, true)
 	w.Close()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "1 operational error")
+}
+
+// --- writeFormatReports tests ---
+
+func TestWriteFormatReports_AllSucceed_NoWarnings(t *testing.T) {
+	tmpDir := t.TempDir()
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{{
+		RequirementID: "req-1",
+		Steps:         []provider.Step{{Name: "check", Result: provider.ResultPassed}},
+	}})
+	logPath := filepath.Join(tmpDir, "eval.yaml")
+	require.NoError(t, os.WriteFile(logPath, []byte("test"), 0600))
+
+	oldStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	writeFormatReports([]string{
+		complytime.OutputFormatOSCAL,
+		complytime.OutputFormatSARIF,
+	}, eval, logPath, tmpDir, "test-repo")
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	assert.Empty(t, buf.String(), "no warnings expected when all formatters succeed")
+}
+
+func TestWriteFormatReports_FailuresContinuePastFirstError(t *testing.T) {
+	tmpDir := t.TempDir()
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{{
+		RequirementID: "req-1",
+		Steps:         []provider.Step{{Name: "check", Result: provider.ResultPassed}},
+	}})
+	logPath := filepath.Join(tmpDir, "eval.yaml")
+	require.NoError(t, os.WriteFile(logPath, []byte("test"), 0600))
+
+	// Create a file where a directory is expected, blocking MkdirAll.
+	// All formatters share the same outDir so all fail, but the function
+	// must continue past each failure and collect all warnings.
+	badDir := filepath.Join(tmpDir, "blocked")
+	require.NoError(t, os.WriteFile(badDir, []byte("blocker"), 0600))
+	blockedOutDir := filepath.Join(badDir, "subdir")
+
+	oldStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	writeFormatReports([]string{
+		complytime.OutputFormatSARIF,
+		complytime.OutputFormatOSCAL,
+	}, eval, logPath, blockedOutDir, "test-repo")
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	stderr := buf.String()
+	assert.Contains(t, stderr, "warning: sarif formatter failed:",
+		"SARIF warning should be emitted")
+	assert.Contains(t, stderr, "warning: oscal formatter failed:",
+		"OSCAL warning should be emitted — function must continue past first failure")
+}
+
+func TestWriteFormatReports_AllFail_AllWarningsEmitted(t *testing.T) {
+	tmpDir := t.TempDir()
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{{
+		RequirementID: "req-1",
+		Steps:         []provider.Step{{Name: "check", Result: provider.ResultPassed}},
+	}})
+	logPath := filepath.Join(tmpDir, "eval.yaml")
+	require.NoError(t, os.WriteFile(logPath, []byte("test"), 0600))
+
+	// Create a file where the output directory would be, blocking MkdirAll.
+	badDir := filepath.Join(tmpDir, "blocked")
+	require.NoError(t, os.WriteFile(badDir, []byte("blocker"), 0600))
+	blockedOutDir := filepath.Join(badDir, "subdir")
+
+	oldStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	writeFormatReports([]string{
+		complytime.OutputFormatOSCAL,
+		complytime.OutputFormatPretty,
+		complytime.OutputFormatSARIF,
+	}, eval, logPath, blockedOutDir, "test-repo")
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	stderr := buf.String()
+	assert.Contains(t, stderr, "warning: oscal formatter failed:")
+	assert.Contains(t, stderr, "warning: pretty formatter failed:")
+	assert.Contains(t, stderr, "warning: sarif formatter failed:")
+}
+
+func TestWriteFormatReports_UnsupportedFormatWarning(t *testing.T) {
+	tmpDir := t.TempDir()
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{{
+		RequirementID: "req-1",
+		Steps:         []provider.Step{{Name: "check", Result: provider.ResultPassed}},
+	}})
+	logPath := filepath.Join(tmpDir, "eval.yaml")
+	require.NoError(t, os.WriteFile(logPath, []byte("test"), 0600))
+
+	oldStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	writeFormatReports([]string{"unknown-format"}, eval, logPath, tmpDir, "test-repo")
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	assert.Contains(t, buf.String(), `unsupported format "unknown-format" (skipped)`,
+		"unsupported format should emit a warning")
+}
+
+func TestWriteFormatReports_EmptyFormats_NoOp(t *testing.T) {
+	tmpDir := t.TempDir()
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
+
+	oldStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	writeFormatReports(nil, eval, "", tmpDir, "test-repo")
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	assert.Empty(t, buf.String(), "nil formats should produce no output")
 }
 
 // --- extractPlanToReqMap tests ---

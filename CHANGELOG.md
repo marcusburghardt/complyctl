@@ -4,6 +4,13 @@
 
 ### Added
 
+- Multi-format scan output: `--format` flag now accepts multiple values
+  via comma-separated syntax (`--format oscal,sarif`) or repeated flags
+  (`--format oscal --format sarif`). New `--format all` convenience
+  shorthand expands to all three secondary formats (OSCAL, SARIF,
+  Markdown). Duplicate values are rejected. Formatter failures use
+  partial-success semantics: warnings printed to stderr, remaining
+  formats still produced. (#890)
 - Evidence source provenance via `EvidenceMapping`: providers can now
   report **where** evidence was collected from using the new `source`
   field on the proto `Evidence` message (field 6). New `EvidenceSource`
