@@ -518,7 +518,8 @@ func buildEnv(homeDir string) []string {
 	for _, e := range env {
 		if strings.HasPrefix(e, "HOME=") ||
 			strings.HasPrefix(e, "XDG_CACHE_HOME=") ||
-			strings.HasPrefix(e, "XDG_DATA_HOME=") {
+			strings.HasPrefix(e, "XDG_DATA_HOME=") ||
+			strings.HasPrefix(e, "COMPLYTIME_LOG_FORMAT=") {
 			continue
 		}
 		filtered = append(filtered, e)

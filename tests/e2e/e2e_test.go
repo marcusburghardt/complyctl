@@ -403,6 +403,31 @@ func TestE2E_ScanMultiFormat(t *testing.T) {
 		assertOutputFile(t, evalDir, "scan-", ".json")
 	})
 
+	t.Run("repeated_flag", func(t *testing.T) {
+		scanDir := filepath.Join(workDir, "scan-repeated")
+		require.NoError(t, os.MkdirAll(scanDir, 0755))
+		copyWorkspaceConfig(t, workDir, scanDir)
+
+		out := runComplytime(t, binary, scanDir, env,
+			"scan", "--policy-id", testPolicyID,
+			"--format", "oscal", "--format", "sarif")
+		t.Log(out)
+		assert.Contains(t, out, "requirements:")
+
+		evalDir := filepath.Join(scanDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
+		assertOutputFile(t, evalDir, "evaluation-log-", ".yaml")
+		assertOutputFile(t, evalDir, "assessment-results-", ".json")
+		assertOutputFile(t, evalDir, "scan-", ".json")
+
+		// Verify unrequested Markdown format was not produced
+		entries, err := os.ReadDir(evalDir)
+		require.NoError(t, err)
+		for _, e := range entries {
+			assert.False(t, strings.HasPrefix(e.Name(), "report-"),
+				"Markdown output must not exist when only oscal+sarif requested")
+		}
+	})
+
 	t.Run("single_format_backward_compat", func(t *testing.T) {
 		scanDir := filepath.Join(workDir, "scan-single")
 		require.NoError(t, os.MkdirAll(scanDir, 0755))
@@ -424,6 +449,8 @@ func TestE2E_ScanMultiFormat(t *testing.T) {
 			name := e.Name()
 			assert.False(t, strings.HasPrefix(name, "report-"),
 				"Markdown output must not exist when only oscal requested")
+			assert.False(t, strings.HasPrefix(name, "scan-"),
+				"SARIF output must not exist when only oscal requested")
 		}
 	})
 }
