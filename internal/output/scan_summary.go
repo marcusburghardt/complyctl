@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/gemaraproj/go-gemara"
 
 	"github.com/complytime/complyctl/internal/complytime"
@@ -219,14 +218,19 @@ type MappingCollision struct {
 // ref, the policy ref is retained. Among provider refs, first-wins.
 // A collision note is prepended to the retained entry's Description
 // and a MappingCollision is recorded for warning channels.
+//
+// Provider refs with empty IDs are silently discarded; their titles
+// are returned in the third value so the caller can log them through
+// the project's configured logger.
 func MergeMappingReferences(
 	policyRefs []gemara.MappingReference,
 	providerRefs []provider.MappingReference,
-) ([]gemara.MappingReference, []MappingCollision) {
+) ([]gemara.MappingReference, []MappingCollision, []string) {
 	seen := make(map[string]int)
 	isPolicyOrigin := make(map[string]bool)
 	var result []gemara.MappingReference
 	var collisions []MappingCollision
+	var discardedEmptyIDs []string
 
 	// Policy refs take priority — add them first.
 	for _, pr := range policyRefs {
@@ -238,10 +242,8 @@ func MergeMappingReferences(
 	// Process provider refs: convert, deduplicate, record collisions.
 	for _, pr := range providerRefs {
 		if pr.ID == "" {
-			log.Warn(
-				"discarding provider mapping reference"+
-					" with empty id",
-				"title", pr.Title,
+			discardedEmptyIDs = append(
+				discardedEmptyIDs, pr.Title,
 			)
 			continue
 		}
@@ -273,7 +275,7 @@ func MergeMappingReferences(
 		result = append(result, providerRefToGemara(pr))
 	}
 
-	return result, collisions
+	return result, collisions, discardedEmptyIDs
 }
 
 // providerRefToGemara converts a provider.MappingReference to the

@@ -481,6 +481,7 @@ func TestMergeMappingReferences(t *testing.T) {
 		providerRefs   []provider.MappingReference
 		wantLen        int
 		wantCollisions int
+		wantDiscarded  int
 		verify         func(
 			t *testing.T,
 			merged []gemara.MappingReference,
@@ -644,6 +645,7 @@ func TestMergeMappingReferences(t *testing.T) {
 			},
 			wantLen:        1,
 			wantCollisions: 0,
+			wantDiscarded:  1,
 			verify: func(
 				t *testing.T,
 				merged []gemara.MappingReference,
@@ -779,18 +781,42 @@ func TestMergeMappingReferences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			merged, collisions := MergeMappingReferences(
-				tt.policyRefs, tt.providerRefs,
-			)
+			merged, collisions, discarded :=
+				MergeMappingReferences(
+					tt.policyRefs, tt.providerRefs,
+				)
 			require.Len(t, merged, tt.wantLen)
 			require.Len(t,
 				collisions, tt.wantCollisions,
+			)
+			require.Len(t,
+				discarded, tt.wantDiscarded,
 			)
 			if tt.verify != nil {
 				tt.verify(t, merged, collisions)
 			}
 		})
 	}
+}
+
+func TestMergeMappingReferences_DiscardedEmptyIDs(
+	t *testing.T,
+) {
+	providerRefs := []provider.MappingReference{
+		{ID: "", Title: "No ID Ref"},
+		{ID: "valid-1", Title: "Valid Ref"},
+		{ID: "", Title: "Another No ID"},
+	}
+
+	merged, collisions, discarded :=
+		MergeMappingReferences(nil, providerRefs)
+
+	require.Len(t, merged, 1)
+	assert.Equal(t, "valid-1", merged[0].Id)
+	require.Empty(t, collisions)
+	require.Len(t, discarded, 2)
+	assert.Equal(t, "No ID Ref", discarded[0])
+	assert.Equal(t, "Another No ID", discarded[1])
 }
 
 func TestFormatMappingCollisions_Empty(t *testing.T) {
