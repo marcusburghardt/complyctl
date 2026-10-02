@@ -5,6 +5,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -1373,6 +1374,50 @@ func TestWriteFormatReports_FailuresContinuePastFirstError(t *testing.T) {
 		"SARIF warning should be emitted")
 	assert.Contains(t, stderr, "warning: oscal formatter failed:",
 		"OSCAL warning should be emitted — function must continue past first failure")
+}
+
+func TestWriteFormatReports_MixedSuccess_OneFailsOtherSucceeds(t *testing.T) {
+	tmpDir := t.TempDir()
+	eval := output.NewEvaluator("test-policy", "target-1", nil, nil, nil, nil)
+	eval.AddTarget([]provider.AssessmentLog{{
+		RequirementID: "req-1",
+		Steps:         []provider.Step{{Name: "check", Result: provider.ResultPassed}},
+	}})
+	logPath := filepath.Join(tmpDir, "eval.yaml")
+	require.NoError(t, os.WriteFile(logPath, []byte("test"), 0600))
+
+	// Inject a SARIF failure while leaving OSCAL intact.
+	origSARIF := writeSARIFReport
+	t.Cleanup(func() { writeSARIFReport = origSARIF })
+	writeSARIFReport = func(_ *output.Evaluator, _ string) error {
+		return errors.New("simulated sarif failure")
+	}
+
+	oldStderr := os.Stderr
+	t.Cleanup(func() { os.Stderr = oldStderr })
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	writeFormatReports([]string{
+		complytime.OutputFormatSARIF,
+		complytime.OutputFormatOSCAL,
+	}, eval, logPath, tmpDir, "test-repo")
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	stderr := buf.String()
+
+	assert.Contains(t, stderr, "warning: sarif formatter failed:",
+		"SARIF warning should be emitted for the injected failure")
+
+	// The OSCAL formatter must succeed and produce its report file.
+	matches, globErr := filepath.Glob(
+		filepath.Join(tmpDir, "assessment-results-*.json"))
+	require.NoError(t, globErr)
+	assert.Len(t, matches, 1,
+		"OSCAL report file should exist after SARIF failure")
 }
 
 func TestWriteFormatReports_AllFail_AllWarningsEmitted(t *testing.T) {

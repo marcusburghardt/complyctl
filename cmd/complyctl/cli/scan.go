@@ -906,7 +906,7 @@ func writeFormatReports(formats []string, eval *output.Evaluator, logPath, outDi
 	}
 }
 
-func writePrettyReport(eval *output.Evaluator, logPath, outDir, repository string) error {
+var writePrettyReport = func(eval *output.Evaluator, logPath, outDir, repository string) error {
 	md := output.NewMarkdown(repository, eval.GemaraLog())
 	md.SetEmbedEvaluationLog(logPath)
 	mdPath, err := md.Write(outDir)
@@ -917,7 +917,7 @@ func writePrettyReport(eval *output.Evaluator, logPath, outDir, repository strin
 	return nil
 }
 
-func writeSARIFReport(eval *output.Evaluator, outDir string) error {
+var writeSARIFReport = func(eval *output.Evaluator, outDir string) error {
 	sarifPath, err := output.ToSARIF(eval.GemaraLog(), "file:///scan", outDir)
 	if err != nil {
 		return fmt.Errorf("failed to export SARIF: %w", err)
@@ -926,7 +926,7 @@ func writeSARIFReport(eval *output.Evaluator, outDir string) error {
 	return nil
 }
 
-func writeOSCALReport(eval *output.Evaluator, outDir string) error {
+var writeOSCALReport = func(eval *output.Evaluator, outDir string) error {
 	oscalPath, err := output.ToOSCAL(eval.GemaraLog(), outDir)
 	if err != nil {
 		return fmt.Errorf("failed to export OSCAL: %w", err)
