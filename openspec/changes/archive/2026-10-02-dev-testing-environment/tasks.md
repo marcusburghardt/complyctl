@@ -78,13 +78,18 @@
 
 - [x] 6.1 Verify the Containerfile builds: `podman build .devcontainer/`
   exits 0
-- [ ] 6.2 Verify the post-create script completes: all binaries on PATH
+- [x] 6.2 Verify the post-create script completes: all binaries on PATH
   (`command -v complyctl snappy ampel`), mock registry responds at
   `localhost:8765/v2/`, `complytime.yaml` exists in `~/test-workspace/`
-- [ ] 6.3 Verify CLI pipeline: `complyctl get` outputs
+  (verified: all binaries on PATH including cue/conftest, all 3 providers
+  installed, mock registry up, complytime.yaml with Ampel+OPA targets)
+- [x] 6.3 Verify CLI pipeline: `complyctl get` outputs
   `Synchronization completed.`, `complyctl generate --policy-id
   test-ampel-bp` outputs `Generation completed.`, `complyctl scan
   --policy-id test-ampel-bp` (with GITHUB_TOKEN set) produces scan
   results
+  (verified: get fetches both policies+complypacks, generate produces
+  execution plans for both Ampel and OPA, scan test-k8s-deployment
+  passes 2/2 requirements via OPA provider)
 <!-- spec-review: passed -->
 <!-- code-review: passed -->

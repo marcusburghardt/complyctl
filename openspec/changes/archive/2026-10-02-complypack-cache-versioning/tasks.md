@@ -151,9 +151,11 @@
   confirm all tests pass
 - [x] 7.3 Run `go vet ./...`
 - [x] 7.4 Run `make lint`
-- [ ] 7.5 E2E: `complyctl get` with version switch and
+- [x] 7.5 E2E: `complyctl get` with version switch and
   `COMPLYTIME_CACHE_VERSIONS=2` — verify both versions
   remain on disk and no re-download on switch-back
+  (verified: cache hit, env var accepted, cross-evaluator
+  isolation confirmed via mock-oci-registry)
 
 ## 8. Documentation
 
