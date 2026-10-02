@@ -496,10 +496,16 @@ func runScanAndReport(ctx context.Context, formats []string, logFormat string, m
 // stderr, writes the mandatory EvaluationLog, and attempts secondary format
 // reports on a best-effort basis. Returns an error when operational failures
 // are present (triggering non-zero exit).
-func processScanOutput(formats []string, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
+func processScanOutput(formats []string, logFormat string, scanOut *scanOutput, repository string, mappings *resolvedMappings, policyRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, eid string, targetIDs []string, baseDir string, showPassing bool) error {
 	reportOperationalWarnings(scanOut.errors)
 
-	evaluators := buildEvaluators(repository, mappings, mappingRefs, policyTargets, scanOut.assessments, scanOut.assessmentTargets)
+	evaluators, collisions, discardedTitles := buildEvaluators(
+		repository, mappings, policyRefs,
+		scanOut.mappingReferences, policyTargets,
+		scanOut.assessments, scanOut.assessmentTargets,
+	)
+	reportMappingCollisions(collisions)
+	reportDiscardedMappingRefs(discardedTitles)
 
 	outDir := filepath.Join(baseDir, complytime.WorkspaceDir, complytime.ScanOutputDir)
 	for _, eval := range evaluators {
@@ -521,6 +527,35 @@ func processScanOutput(formats []string, logFormat string, scanOut *scanOutput, 
 func reportOperationalWarnings(errors []string) {
 	if warnings := output.FormatOperationalWarnings(errors); warnings != "" {
 		fmt.Fprint(os.Stderr, warnings)
+	}
+}
+
+// reportMappingCollisions prints mapping reference collisions as WARNING lines
+// to stderr and logs each collision via the structured logger. No output is
+// produced when collisions is empty.
+func reportMappingCollisions(collisions []output.MappingCollision) {
+	if warnings := output.FormatMappingCollisions(collisions); warnings != "" {
+		fmt.Fprint(os.Stderr, warnings)
+	}
+	for _, c := range collisions {
+		logger.Warn("mapping reference collision",
+			"id", c.ID,
+			"retained", c.RetainedTitle,
+			"discarded", c.DiscardedTitle,
+			"policy_wins", c.PolicyWins,
+		)
+	}
+}
+
+// reportDiscardedMappingRefs logs provider mapping references that were
+// discarded because they had empty IDs. Uses the project's configured
+// logger rather than the package-level default.
+func reportDiscardedMappingRefs(titles []string) {
+	for _, title := range titles {
+		logger.Warn("discarding provider mapping reference"+
+			" with empty id",
+			"title", title,
+		)
 	}
 }
 
@@ -549,20 +584,60 @@ func checkNothingAssessed(assessments []provider.AssessmentLog) error {
 	return nil
 }
 
-func buildEvaluators(repository string, mappings *resolvedMappings, mappingRefs []gemara.MappingReference, policyTargets []complytime.TargetConfig, allAssessments []provider.AssessmentLog, assessmentTargets []string) []*output.Evaluator {
+// buildEvaluators creates one Evaluator per target, merging policy-level
+// mapping references with that target's provider-reported references.
+// Per-target merging prevents cross-target reference contamination and
+// avoids false collision warnings when different targets return
+// identical provider references.
+func buildEvaluators(
+	repository string,
+	mappings *resolvedMappings,
+	policyRefs []gemara.MappingReference,
+	perTargetRefs map[string][]provider.MappingReference,
+	policyTargets []complytime.TargetConfig,
+	allAssessments []provider.AssessmentLog,
+	assessmentTargets []string,
+) ([]*output.Evaluator, []output.MappingCollision, []string) {
 	evaluators := make([]*output.Evaluator, 0, len(policyTargets))
+	seenCollision := make(map[string]bool)
+	var allCollisions []output.MappingCollision
+	var allDiscarded []string
+
 	for _, target := range policyTargets {
-		eval := output.NewEvaluator(repository, target.ID, mappings.reqToControl, mappings.reqToPlan, mappings.reqToComplypackRef, mappingRefs)
+		targetProviderRefs := perTargetRefs[target.ID]
+		mergedRefs, collisions, discarded :=
+			output.MergeMappingReferences(
+				policyRefs, targetProviderRefs,
+			)
+
+		// Deduplicate collisions across targets: the same
+		// policy-vs-provider collision on two targets is one
+		// user-facing warning.
+		for _, c := range collisions {
+			if !seenCollision[c.ID] {
+				seenCollision[c.ID] = true
+				allCollisions = append(allCollisions, c)
+			}
+		}
+		allDiscarded = append(allDiscarded, discarded...)
+
+		eval := output.NewEvaluator(
+			repository, target.ID,
+			mappings.reqToControl, mappings.reqToPlan,
+			mappings.reqToComplypackRef, mergedRefs,
+		)
 		var targetAssessments []provider.AssessmentLog
 		for j, a := range allAssessments {
 			if assessmentTargets[j] == target.ID {
-				targetAssessments = append(targetAssessments, a)
+				targetAssessments = append(
+					targetAssessments, a,
+				)
 			}
 		}
 		eval.AddTarget(targetAssessments)
 		evaluators = append(evaluators, eval)
 	}
-	return evaluators
+	return evaluators, allCollisions, allDiscarded
 }
 
 // filterTargetByID narrows a target slice to the single target matching the
@@ -723,10 +798,12 @@ func executeScan(ctx context.Context, mgr *provider.Manager, groups map[string]p
 }
 
 func scanAllTargets(ctx context.Context, mgr *provider.Manager, groups map[string]policy.EvaluatorGroup, policyTargets []complytime.TargetConfig) (*scanOutput, error) {
-	out := &scanOutput{}
+	out := &scanOutput{
+		mappingReferences: make(map[string][]provider.MappingReference),
+	}
 
 	for _, target := range policyTargets {
-		results, opErrors, err := scanSingleTarget(ctx, mgr, groups, target)
+		results, opErrors, mappingRefs, err := scanSingleTarget(ctx, mgr, groups, target)
 		if err != nil {
 			return nil, err
 		}
@@ -735,6 +812,9 @@ func scanAllTargets(ctx context.Context, mgr *provider.Manager, groups map[strin
 			out.assessmentTargets = append(out.assessmentTargets, target.ID)
 		}
 		out.errors = append(out.errors, opErrors...)
+		out.mappingReferences[target.ID] = append(
+			out.mappingReferences[target.ID], mappingRefs...,
+		)
 	}
 
 	return out, nil
@@ -742,29 +822,46 @@ func scanAllTargets(ctx context.Context, mgr *provider.Manager, groups map[strin
 
 // scanOutput holds the combined results of scanning all targets, separating
 // evaluation results (assessments) from operational failures (errors).
+// Mapping references are stored per-target to prevent cross-target
+// contamination when building per-target EvaluationLogs.
 type scanOutput struct {
 	assessments       []provider.AssessmentLog
 	assessmentTargets []string
 	errors            []string
+	mappingReferences map[string][]provider.MappingReference
 }
 
-func scanSingleTarget(ctx context.Context, mgr *provider.Manager, groups map[string]policy.EvaluatorGroup, target complytime.TargetConfig) ([]provider.AssessmentLog, []string, error) {
+func scanSingleTarget(
+	ctx context.Context,
+	mgr *provider.Manager,
+	groups map[string]policy.EvaluatorGroup,
+	target complytime.TargetConfig,
+) ([]provider.AssessmentLog, []string, []provider.MappingReference, error) {
 	providerTargets := []provider.Target{{
 		TargetID:  target.ID,
 		Variables: target.Variables,
 	}}
 
+	// Sort evaluator IDs for deterministic iteration order (D6).
+	evalIDs := make([]string, 0, len(groups))
+	for evalID := range groups {
+		evalIDs = append(evalIDs, evalID)
+	}
+	slices.Sort(evalIDs)
+
 	var results []provider.AssessmentLog
 	var operationalErrors []string
-	for evalID := range groups {
+	var mappingRefs []provider.MappingReference
+	for _, evalID := range evalIDs {
 		scanResult, routeErr := mgr.RouteScanResult(ctx, evalID, providerTargets)
 		if routeErr != nil {
-			return nil, nil, routeErr
+			return nil, nil, nil, routeErr
 		}
 		results = append(results, scanResult.Assessments...)
 		operationalErrors = append(operationalErrors, scanResult.Errors...)
+		mappingRefs = append(mappingRefs, scanResult.MappingReferences...)
 	}
-	return results, operationalErrors, nil
+	return results, operationalErrors, mappingRefs, nil
 }
 
 func writeScanReports(formats []string, logFormat string, eval *output.Evaluator, outDir, repository string) error {

@@ -1454,6 +1454,197 @@ func TestWriteFormatReports_EmptyFormats_NoOp(t *testing.T) {
 	assert.Empty(t, buf.String(), "nil formats should produce no output")
 }
 
+// --- buildEvaluators tests ---
+
+func TestBuildEvaluators_PerTargetIsolation(t *testing.T) {
+	mappings := &resolvedMappings{
+		reqToControl:       map[string]string{},
+		reqToPlan:          map[string]string{},
+		reqToComplypackRef: map[string]string{},
+	}
+	policyRefs := []gemara.MappingReference{
+		{Id: "pol-1", Title: "Policy One"},
+	}
+	perTargetRefs := map[string][]provider.MappingReference{
+		"target-a": {
+			{ID: "prov-a", Title: "Provider A"},
+		},
+		"target-b": {
+			{ID: "prov-b", Title: "Provider B"},
+		},
+	}
+	policyTargets := []complytime.TargetConfig{
+		{ID: "target-a"},
+		{ID: "target-b"},
+	}
+
+	evaluators, collisions, discarded := buildEvaluators(
+		"test-repo", mappings, policyRefs,
+		perTargetRefs, policyTargets, nil, nil,
+	)
+
+	require.Len(t, evaluators, 2)
+	require.Empty(t, collisions)
+	require.Empty(t, discarded)
+
+	// target-a evaluator has pol-1 + prov-a only
+	refsA := evaluators[0].GemaraLog().Metadata.MappingReferences
+	require.Len(t, refsA, 2)
+	assert.Equal(t, "pol-1", refsA[0].Id)
+	assert.Equal(t, "prov-a", refsA[1].Id)
+
+	// target-b evaluator has pol-1 + prov-b only
+	refsB := evaluators[1].GemaraLog().Metadata.MappingReferences
+	require.Len(t, refsB, 2)
+	assert.Equal(t, "pol-1", refsB[0].Id)
+	assert.Equal(t, "prov-b", refsB[1].Id)
+}
+
+func TestBuildEvaluators_CollisionDedup(t *testing.T) {
+	mappings := &resolvedMappings{
+		reqToControl:       map[string]string{},
+		reqToPlan:          map[string]string{},
+		reqToComplypackRef: map[string]string{},
+	}
+	// Policy and provider share the same ID — collision
+	policyRefs := []gemara.MappingReference{
+		{Id: "shared-id", Title: "Policy Version"},
+	}
+	perTargetRefs := map[string][]provider.MappingReference{
+		"target-a": {
+			{ID: "shared-id", Title: "Provider Version"},
+		},
+		"target-b": {
+			{ID: "shared-id", Title: "Provider Version"},
+		},
+	}
+	policyTargets := []complytime.TargetConfig{
+		{ID: "target-a"},
+		{ID: "target-b"},
+	}
+
+	_, collisions, _ := buildEvaluators(
+		"test-repo", mappings, policyRefs,
+		perTargetRefs, policyTargets, nil, nil,
+	)
+
+	// Same collision on both targets should be reported once
+	require.Len(t, collisions, 1)
+	assert.Equal(t, "shared-id", collisions[0].ID)
+	assert.True(t, collisions[0].PolicyWins)
+}
+
+func TestBuildEvaluators_IdenticalProviderRefsAcrossTargets(
+	t *testing.T,
+) {
+	mappings := &resolvedMappings{
+		reqToControl:       map[string]string{},
+		reqToPlan:          map[string]string{},
+		reqToComplypackRef: map[string]string{},
+	}
+	// Same provider ref returned for both targets — no collision
+	perTargetRefs := map[string][]provider.MappingReference{
+		"target-a": {
+			{ID: "test-source", Title: "Test Source"},
+		},
+		"target-b": {
+			{ID: "test-source", Title: "Test Source"},
+		},
+	}
+	policyTargets := []complytime.TargetConfig{
+		{ID: "target-a"},
+		{ID: "target-b"},
+	}
+
+	evaluators, collisions, _ := buildEvaluators(
+		"test-repo", mappings, nil,
+		perTargetRefs, policyTargets, nil, nil,
+	)
+
+	// No collisions — each target merges independently
+	require.Empty(t, collisions)
+	require.Len(t, evaluators, 2)
+
+	// Both evaluators have the ref
+	refsA := evaluators[0].GemaraLog().Metadata.MappingReferences
+	require.Len(t, refsA, 1)
+	assert.Equal(t, "test-source", refsA[0].Id)
+
+	refsB := evaluators[1].GemaraLog().Metadata.MappingReferences
+	require.Len(t, refsB, 1)
+	assert.Equal(t, "test-source", refsB[0].Id)
+}
+
+func TestBuildEvaluators_EmptyPerTargetRefs(t *testing.T) {
+	mappings := &resolvedMappings{
+		reqToControl:       map[string]string{},
+		reqToPlan:          map[string]string{},
+		reqToComplypackRef: map[string]string{},
+	}
+	policyRefs := []gemara.MappingReference{
+		{Id: "pol-1", Title: "Policy One"},
+	}
+	policyTargets := []complytime.TargetConfig{
+		{ID: "target-a"},
+	}
+
+	evaluators, collisions, discarded := buildEvaluators(
+		"test-repo", mappings, policyRefs,
+		map[string][]provider.MappingReference{},
+		policyTargets, nil, nil,
+	)
+
+	require.Len(t, evaluators, 1)
+	require.Empty(t, collisions)
+	require.Empty(t, discarded)
+
+	// Only policy refs present
+	refs := evaluators[0].GemaraLog().Metadata.MappingReferences
+	require.Len(t, refs, 1)
+	assert.Equal(t, "pol-1", refs[0].Id)
+}
+
+func TestBuildEvaluators_PerTargetAssessmentFiltering(
+	t *testing.T,
+) {
+	mappings := &resolvedMappings{
+		reqToControl:       map[string]string{},
+		reqToPlan:          map[string]string{},
+		reqToComplypackRef: map[string]string{},
+	}
+	allAssessments := []provider.AssessmentLog{
+		{RequirementID: "req-1", Steps: []provider.Step{
+			{Name: "check", Result: provider.ResultPassed},
+		}},
+		{RequirementID: "req-2", Steps: []provider.Step{
+			{Name: "check", Result: provider.ResultFailed},
+		}},
+	}
+	assessmentTargets := []string{"target-a", "target-b"}
+	policyTargets := []complytime.TargetConfig{
+		{ID: "target-a"},
+		{ID: "target-b"},
+	}
+
+	evaluators, _, _ := buildEvaluators(
+		"test-repo", mappings, nil,
+		map[string][]provider.MappingReference{},
+		policyTargets, allAssessments, assessmentTargets,
+	)
+
+	require.Len(t, evaluators, 2)
+
+	// target-a evaluator has only req-1 (passed)
+	logA := evaluators[0].GemaraLog()
+	require.Len(t, logA.Evaluations, 1)
+	assert.Equal(t, gemara.Passed, logA.Result)
+
+	// target-b evaluator has only req-2 (failed)
+	logB := evaluators[1].GemaraLog()
+	require.Len(t, logB.Evaluations, 1)
+	assert.Equal(t, gemara.Failed, logB.Result)
+}
+
 // --- extractPlanToReqMap tests ---
 
 func TestExtractPlanToReqMap_NilGraph(t *testing.T) {
