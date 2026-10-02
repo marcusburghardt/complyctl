@@ -23,5 +23,7 @@
 
 - [x] 4.1 Run `goreleaser check` — must pass clean
 - [x] 4.2 Run `goreleaser release --snapshot --clean` — verify darwin archives are produced
-- [ ] 4.3 Confirm GitHub App has Contents:write on `homebrew-tap` (admin check)
+- [x] 4.3 Confirm GitHub App has Contents:write on `homebrew-tap` (admin check)
+  (confirmed: `homebrew-formula-publisher` app has `contents: write` + `metadata: read`,
+  installed on selected repos including homebrew-tap)
 - [x] 4.4 Confirm `complytime/homebrew-tap` repo has `Formula/` directory or that the workflow creates it via `mkdir -p`

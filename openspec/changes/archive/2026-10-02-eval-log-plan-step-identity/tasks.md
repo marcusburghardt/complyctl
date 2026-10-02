@@ -31,4 +31,5 @@
 
 - [x] 5.1 Run `make test-unit` and verify all new and existing tests pass
 - [x] 5.2 Run `make lint` and fix any linter warnings
-- [ ] 5.3 Verify evaluation log YAML output in devcontainer with OPA and Ampel providers: confirm `plan` field present and `steps` contain identity strings (or bare names if providers have not yet been updated)
+- [x] 5.3 Verify evaluation log YAML output in devcontainer with OPA and Ampel providers: confirm `plan` field present and `steps` contain identity strings (or bare names if providers have not yet been updated)
+  (verified: OPA scan produces evaluation log with `plan: {reference-id, entry-id}` on each assessment-log and `steps` containing `complypacks/test-opa-complypack@sha256:...#step-name` identity strings)

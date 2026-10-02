@@ -33,7 +33,11 @@
 - [x] 6.2 Verify `make test-unit` passes (mock registry tests)
 - [x] 6.3 Verify `make test-devcontainer` passes (Containerfile builds)
 - [x] 6.4 Verify `make lint` passes with zero issues
-- [ ] 6.5 Manual test: start devcontainer, run `complyctl get`, verify both Ampel and OPA policies are fetched
-- [ ] 6.6 Manual test: run `complyctl generate --policy-id test-opa-bp` and verify generation succeeds (requires OPA provider with `ComplypackContentPath` support)
-- [ ] 6.7 Manual test: run `complyctl scan --policy-id test-opa-bp` and verify scan results are displayed
-- [ ] 6.8 Manual test: verify existing `test-ampel-bp` workflow is unaffected
+- [x] 6.5 Manual test: start devcontainer, run `complyctl get`, verify both Ampel and OPA policies are fetched
+  (verified: get fetches test-ampel-bp + test-opa-k8s policies and both complypacks)
+- [x] 6.6 Manual test: run `complyctl generate --policy-id test-opa-bp` and verify generation succeeds (requires OPA provider with `ComplypackContentPath` support)
+  (verified: generate --policy-id test-opa-k8s produces execution plan with 2 requirements)
+- [x] 6.7 Manual test: run `complyctl scan --policy-id test-opa-bp` and verify scan results are displayed
+  (verified: scan test-k8s-deployment produces 2/2 passed with evaluation log output)
+- [x] 6.8 Manual test: verify existing `test-ampel-bp` workflow is unaffected
+  (verified: generate --policy-id test-ampel-bp succeeds with 1 requirement)
