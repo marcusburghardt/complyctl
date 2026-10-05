@@ -14,8 +14,8 @@
 # installation. A maintainer merges the PR to publish.
 #
 # See: https://github.com/complytime/complyctl/issues/699
-# Fixes: https://github.com/complytime/complyctl/issues/654
-# Fixes: https://github.com/complytime/complyctl/issues/655
+# Ref: https://github.com/complytime/complyctl/issues/654
+# Ref: https://github.com/complytime/complyctl/issues/655
 
 name: Release
 
@@ -173,16 +173,16 @@ jobs:
                   cp ../complyctl.rb Formula/complyctl.rb
                   git config user.name "github-actions[bot]"
                   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+                  # Create the feature branch before committing so the
+                  # commit is recorded on the branch, not on local main.
+                  git checkout -b "${BRANCH}"
                   git add Formula/complyctl.rb
 
                   # If the formula already matches main (re-run after PR
                   # was merged), there is nothing to do.
                   git commit -m "complyctl ${VERSION}" || { echo "No changes to commit"; exit 0; }
 
-                  # Push to a feature branch and open a PR instead of
-                  # pushing directly to main, which is blocked by the
-                  # organization branch protection ruleset.
-                  git checkout -b "${BRANCH}"
                   GH_TOKEN="${TAP_TOKEN}" gh auth setup-git
                   git push origin "${BRANCH}"
                   PR_URL=$(GH_TOKEN="${TAP_TOKEN}" gh pr create \
