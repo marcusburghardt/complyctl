@@ -30,7 +30,7 @@ The `homebrew` job in the release workflow opens a PR with `Formula/complyctl.rb
 
 **Re-runs:** Safe. If a PR for this version is already open, the job skips with a notice. If the PR was already merged and the formula matches main, `git commit` exits with "No changes to commit" and the job succeeds.
 
-**Post-release step:** After the release workflow completes, merge the formula PR in the [homebrew-tap](https://github.com/complytime/homebrew-tap/pulls) repository.
+**Post-release step:** After the release workflow completes, merge the formula PR in the [homebrew-tap](https://github.com/complytime/homebrew-tap/pulls) repository. If the PR has merge conflicts, delete the feature branch and re-run the release workflow to regenerate it. If the PR receives review feedback, address it directly in the `homebrew-tap` repository.
 
 **Manual recovery:** If the automation fails, manually create the Formula PR:
 1. Download the source tarball: `curl -sL -o source.tar.gz https://github.com/complytime/complyctl/archive/refs/tags/vX.Y.Z.tar.gz`
