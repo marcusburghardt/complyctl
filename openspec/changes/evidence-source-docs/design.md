@@ -120,11 +120,14 @@ Evidence interpretation belongs between "here's where it is" and
 **Decision**: Add a new OUTPUT section between EXIT CODES and
 FILES in `docs/man/complyctl.md`.
 
-**Rationale**: Man page convention places OUTPUT descriptions
-near EXIT CODES. The FILES section already lists
-`.complytime/scan/` but doesn't describe what's in the reports.
-The OUTPUT section fills this gap with evidence field descriptions
-and report filename patterns.
+**Rationale**: Man pages conventionally describe what the tool
+produces. OUTPUT is not a standard man(7) section but is a common
+project-specific addition. Placing it between EXIT CODES and FILES
+follows the natural reading flow: what the exit code means, what
+the output contains, where files live. The FILES section already
+lists `.complytime/scan/` but doesn't describe what's in the
+reports. The OUTPUT section fills this gap with evidence field
+descriptions and report filename patterns.
 
 ## Risks / Trade-offs
 
