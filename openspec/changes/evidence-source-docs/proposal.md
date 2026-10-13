@@ -55,7 +55,7 @@ without modifying it.
 
 ## Impact
 
-- **Files modified**: `docs/QUICK_START.md`, `docs/man/complyctl.md`
+- **Files modified**: `docs/QUICK_START.md`, `docs/man/complyctl.md`, `CHANGELOG.md`
 - **Files created**: `docs/EVIDENCE.md`
 - **No code changes**: Documentation only
 - **No API changes**: Describes existing proto/SDK types

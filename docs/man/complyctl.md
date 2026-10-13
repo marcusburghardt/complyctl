@@ -425,6 +425,13 @@ the user provider directory. Providers in the user directory take
 precedence. Must be an absolute path; a relative path is ignored.
 Default: **/usr/libexec/complytime/providers**.
 
+**COMPLYTIME_MACHINE_ID_FILE**
+: Override the path to the machine-id file used by providers when
+constructing evidence host remarks. Default: **/etc/machine-id**. The
+file must contain a non-empty hexadecimal string no larger than 1 KB.
+If unreadable or invalid, the machine-id is silently omitted from the
+remarks.
+
 **NO_COLOR**
 : When set (any non-empty value), **complyctl doctor** automatically
 selects **text** format instead of the default human-readable emoji
@@ -447,6 +454,57 @@ remain available.
 To gate a pipeline on compliance results, parse the scan output
 (SARIF, OSCAL) with your policy engine rather than relying on the exit
 code.
+
+# OUTPUT
+
+**Scan reports**
+: The **scan** command writes reports to **.complytime/scan/** in each
+enabled format. Report filenames follow the pattern:
+
+    *prefix*-*policy-id*-*target-id*-*YYYYMMDD*-*HHMMSS*.*ext*
+
+When no target ID is present (single-target scans), the target
+segment is omitted. Path separators in policy and target IDs are
+replaced with dashes.
+
+**Evidence source provenance**
+: Each evidence entry in the EvaluationLog may include a **source**
+block identifying where the data was collected from. The source
+block contains five fields:
+
+*reference-id*
+: Names the external system or Gemara artifact the evidence was
+collected from. Ties the evidence to a **mapping-references** entry
+in the EvaluationLog metadata.
+
+*coordinate*
+: Precise location within the referenced system (API path, file
+path, JSON path). Mutually exclusive with **entry-id**.
+
+*entry-id*
+: Specific entry within a referenced Gemara artifact. Mutually
+exclusive with **coordinate**.
+
+*digest*
+: Cryptographic hash of the observed content at collection time.
+Format: *algorithm*:*encoded* (e.g., sha256:abc123...).
+
+*remarks*
+: Provider prose about collection context, host identification, or
+caveats. For providers that support it, the standard format is
+**Collected on host "hostname" (machine-id: hexstring)**, where the
+machine-id is read from **/etc/machine-id** (overridable via
+**COMPLYTIME_MACHINE_ID_FILE**).
+
+In the Markdown report (**--format pretty**), evidence source is
+rendered as **source:** *reference-id* **@** *coordinate*. The full
+set of five fields is available in EvaluationLog YAML/JSON output.
+Evidence source requires provider support; when absent, the source
+block is omitted.
+
+For a detailed walkthrough and field reference, see the Evidence
+Source Provenance documentation at
+<https://github.com/complytime/complyctl/blob/main/docs/EVIDENCE.md>.
 
 # FILES
 
@@ -474,6 +532,9 @@ directory).
 
 **.complytime/scan/**
 : Scan output reports (EvaluationLog, OSCAL, SARIF, Markdown).
+Filenames follow the pattern
+*prefix*-*policy-id*-*target-id*-*YYYYMMDD*-*HHMMSS*.*ext*
+(e.g., **evaluation-log-pol-v1-web-20260729-143012.yaml**).
 
 **.complytime/complyctl.log**
 : Debug log file (created when **--debug** is used).

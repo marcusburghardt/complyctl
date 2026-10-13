@@ -369,6 +369,39 @@ complyctl scan my-repo
 
 Output written to `./.complytime/scan/`.
 
+### Understanding Scan Output
+
+Each scan report includes **evidence** collected by the provider to
+support its findings. When the provider supplies source provenance,
+evidence entries include a `source:` block identifying where the
+data was collected from:
+
+```yaml
+evidence:
+- id: ampel_github-com--complytime--complytime-demos_main_github--branch-rules
+  type: IntotoAttestation
+  collected-at: "2026-10-20T09:58:24Z"
+  payload: ""
+  source:
+    reference-id: ampel_github-com--complytime--complytime-demos_main_github--branch-rules
+    coordinate: .complytime/ampel/results/...ampel.intoto.json
+    digest: sha256:1db6fe3e86de5172...
+    remarks: "Collected on host \"scan-host\" (machine-id: a1b2c3d4...)"
+```
+
+In the Markdown report (`--format pretty`), evidence source appears
+as a compact line:
+
+```
+source: ampel_github-com--complytime--complytime-demos_main_github--branch-rules @ .complytime/ampel/results/...ampel.intoto.json
+```
+
+Evidence source provenance requires provider support. When a
+provider does not populate the `source` field, it is omitted from
+the output. See [Evidence Source Provenance](EVIDENCE.md) for the
+full field reference and a walkthrough of how to trace findings back
+to their origin.
+
 > **Exit codes:** `scan` exits 0 on completion regardless of whether controls
 > passed or failed — policy findings are data, not errors. The command exits
 > non-zero only for operational errors (provider failures, bad configuration,

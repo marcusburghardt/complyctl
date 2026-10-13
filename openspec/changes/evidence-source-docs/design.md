@@ -120,11 +120,14 @@ Evidence interpretation belongs between "here's where it is" and
 **Decision**: Add a new OUTPUT section between EXIT CODES and
 FILES in `docs/man/complyctl.md`.
 
-**Rationale**: Man page convention places OUTPUT descriptions
-near EXIT CODES. The FILES section already lists
-`.complytime/scan/` but doesn't describe what's in the reports.
-The OUTPUT section fills this gap with evidence field descriptions
-and report filename patterns.
+**Rationale**: Man pages conventionally describe what the tool
+produces. OUTPUT is not a standard man(7) section but is a common
+project-specific addition. Placing it between EXIT CODES and FILES
+follows the natural reading flow: what the exit code means, what
+the output contains, where files live. The FILES section already
+lists `.complytime/scan/` but doesn't describe what's in the
+reports. The OUTPUT section fills this gap with evidence field
+descriptions and report filename patterns.
 
 ## Risks / Trade-offs
 
@@ -133,6 +136,11 @@ and report filename patterns.
   Mitigation: use the committed output from PR #192 as the
   baseline; the example shows structure, not exact field values.
   Cross-repo integration tests will catch behavioral drift.
+  **Update (post-PR-#192 merge):** This risk materialized during
+  the PR #192 review cycle, which introduced collision-resistant
+  evidence IDs, spec-label components, RFC 8089 `file:///` URLs,
+  and machine-id in remarks. Examples were refreshed with real
+  scan output from the merged providers.
 
 - **[Provider availability]** Documentation describes fields that
   providers may not yet populate. Mitigation: include a "Provider
