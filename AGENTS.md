@@ -94,9 +94,7 @@ make crapload-check     # check for CRAP regressions against baseline
 | Workflow               | File                            | Purpose                                                                                           |
 | ----------             | ------                          | ---------                                                                                         |
 | CI                     | `ci_checks.yml`                 | Standardized CI via org-infra reusable workflow                                                   |
-| Unit Test              | `unit_test.yml`                 | Unit tests + buf lint                                                                             |
-| E2E Test               | `e2e_test.yml`                  | End-to-end tests with mock registry                                                               |
-| Integration Test       | `integration_test.yml`          | Shell-based integration tests                                                                     |
+| Local CI               | `ci_local.yml`                  | Consolidated local test jobs: buf-lint, unit-test, e2e-test, integration-test                     |
 | Cross-Repo Integration | `ci_cross_repo_integration.yml` | Cross-repo integration tests with complytime-providers + EvaluationLog schema validation          |
 | CRAP Load              | `ci_crapload.yml`               | CRAP analysis on PRs (reusable from org-infra)                                                    |
 | Security               | `ci_security.yml`               | Security scanning                                                                                 |

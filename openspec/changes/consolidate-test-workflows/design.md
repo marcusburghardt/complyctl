@@ -12,12 +12,16 @@ to a hardcoded `ci_checks` override in `release.yml`.
 
 Current workflow state:
 
-- `unit_test.yml`: jobs `buf-lint`, `unit-test`
+- `unit_test.yml`: `name: unit-test`, jobs `buf-lint`, `unit-test`
   (triggers: push main, PR all default types)
-- `e2e_test.yml`: job `e2e-test`
+- `e2e_test.yml`: `name: e2e-test`, job `e2e-test`
   (triggers: push main, PR opened+synchronize only)
-- `integration_test.yml`: job `integration-test`
+- `integration_test.yml`: `name: integration-test`, job `integration-test`
   (triggers: push main, PR all default types)
+
+All three source workflows set `name:` equal to their primary job
+name, producing bare check names (e.g., `unit-test`). The
+consolidated workflow changes these to `Local CI / <job>`.
 
 ## Goals / Non-Goals
 
