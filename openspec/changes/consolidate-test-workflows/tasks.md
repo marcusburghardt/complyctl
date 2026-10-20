@@ -18,13 +18,15 @@
   `.github/workflows/integration_test.yml`. Verify the files
   no longer exist and no other workflow references them.
 
-## 3. Remove preflight override
+## 3. Update preflight override
 
-- [x] 3.1 Remove the `ci_checks` input override
-  (`ci_checks: '["unit-test", "e2e-test", "integration-test"]'`)
-  from the `preflight` job in `.github/workflows/release.yml`.
-  Verify the `preflight` job `with:` block no longer contains
-  `ci_checks`.
+- [x] 3.1 Update the `ci_checks` input override in the
+  `preflight` job in `.github/workflows/release.yml` to
+  `'["buf-lint", "unit-test", "e2e-test", "integration-test"]'`.
+  Auto-discovery removal deferred: org-infra preflight
+  (v0.8.0) constructs check names as `<workflow name> / <job>`
+  but the Checks API returns bare job keys, causing exact-match
+  failures.
 
 ## 4. Update documentation
 

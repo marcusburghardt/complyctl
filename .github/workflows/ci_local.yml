@@ -2,11 +2,12 @@
 # ========
 # Consolidated local test and lint jobs. Replaces the
 # former unit_test.yml, e2e_test.yml, and
-# integration_test.yml workflows. The preflight in
-# release.yml auto-discovers these jobs via yq, producing
-# check names like "Local CI / unit-test".
+# integration_test.yml workflows. The release preflight
+# uses an explicit ci_checks override until org-infra
+# auto-discovery is fixed (check-name mismatch).
 #
 # Ref: https://github.com/complytime/complyctl/issues/723
+# Ref: https://github.com/complytime/org-infra/issues/684
 
 name: Local CI
 
