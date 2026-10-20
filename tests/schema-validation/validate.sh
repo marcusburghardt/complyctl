@@ -24,10 +24,9 @@ if ! command -v cue >/dev/null 2>&1; then
     exit 2
 fi
 
-# Gemara CUE schema module — pinned to v0.23.0 (31f58fb674fd3f3f088533af9c6cc83a2d84e17f).
-# Tracks the v0.x line matching go-gemara v0.7.0 used by complyctl.
-# Update this when go.mod's go-gemara dependency is bumped.
-GEMARA_CUE_MODULE="${GEMARA_CUE_MODULE:-github.com/gemaraproj/gemara@v0.23.0}"
+# Gemara CUE schema module — aligned with go-gemara v0.11.0 used by complyctl.
+# Tracked by Renovate custom manager (see renovate.json in repo root).
+GEMARA_CUE_MODULE="${GEMARA_CUE_MODULE:-github.com/gemaraproj/gemara@v1.6.0}"
 
 if [[ $# -lt 1 ]]; then
     echo "Usage: $0 <scan-output-dir> [scan-output-dir ...]"

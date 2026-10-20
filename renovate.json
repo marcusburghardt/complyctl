@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "enabledManagers overrides the org preset (gomod-only) to add",
+    "a custom regex manager that tracks the Gemara CUE schema",
+    "version in tests/schema-validation/validate.sh."
+  ],
+  "enabledManagers": ["gomod", "custom.gemara-cue"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerName": "gemara-cue",
+      "fileMatch": ["^tests/schema-validation/validate\\.sh$"],
+      "matchStrings": [
+        "GEMARA_CUE_MODULE=\"\\$\\{GEMARA_CUE_MODULE:-github\\.com/gemaraproj/gemara@v(?<currentValue>[^\"]+)\\}\""
+      ],
+      "depNameTemplate": "gemaraproj/gemara",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
+}
