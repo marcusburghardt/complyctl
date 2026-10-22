@@ -28,6 +28,7 @@ REGISTRY_PORT="${GEMARA_SERVICE_PORT:-8765}"
 REGISTRY_URL="http://localhost:${REGISTRY_PORT}"
 POLICY_ID="test-ampel-bp"
 OPA_POLICY_ID="test-opa-k8s"
+AMPEL_TARGET_URL="https://github.com/complytime/complyctl"
 
 WORK_DIR=""
 TEST_HOME=""
@@ -108,6 +109,110 @@ assert_json_contains() {
     fi
 }
 
+resolve_indexed_ampel_bundle() {
+    local generated_root="$1" index_path="$2" target_key content_key
+    local resolved_root resolved_bundle bundle_path
+
+    # The provider hashes a normalized URL target key before recording it in the index.
+    target_key=$(printf 'url:%s' "${AMPEL_TARGET_URL#*://}" | sha256sum | cut -c1-16)
+    content_key=$(jq -er --arg target_key "${target_key}" \
+        'if .version == 1 and (.targets | type == "object")
+         then .targets[$target_key] // error("missing target entry")
+         else error("invalid index schema")
+         end' \
+        "${index_path}") || {
+        fail "generate: index has no bundle for complyctl-repo"
+        return 1
+    }
+
+    resolved_root=$(realpath -m "${generated_root}")
+    bundle_path="${generated_root}/${content_key}/complytime-ampel-policy.json"
+    resolved_bundle=$(realpath -m "${bundle_path}")
+    if [[ "${resolved_bundle}" != "${resolved_root}/"* ]]; then
+        fail "generate: indexed bundle escapes generated-artifact root"
+        return 1
+    fi
+    if [[ ! "${content_key}" =~ ^[0-9a-f]{16}$ ]]; then
+        fail "generate: index has an invalid content key for complyctl-repo"
+        return 1
+    fi
+
+    FOUND_FILE="${resolved_bundle}"
+}
+
+assert_ampel_policy_bundle() {
+    local generated_root="$1"
+    local index_path="${generated_root}/generate-index.json"
+
+    if [[ -e "${index_path}" ]]; then
+        resolve_indexed_ampel_bundle "${generated_root}" "${index_path}" || return 1
+        assert_file_exists "generate: indexed policy bundle exists" "${FOUND_FILE}"
+    else
+        assert_file_exists "generate: policy bundle exists" \
+            "${WORK_DIR}/.complytime/ampel/policy/complytime-ampel-policy.json"
+    fi
+
+    [[ -n "${FOUND_FILE}" ]]
+}
+
+test_indexed_ampel_bundle_failures() {
+    local fixture_root generated_root legacy_bundle target_key failure_count
+    local missing_bundle_key empty_bundle_key
+
+    echo ""
+    echo "=== test_indexed_ampel_bundle_failures ==="
+    fixture_root="$(mktemp -d)"
+    generated_root="${fixture_root}/generated"
+    legacy_bundle="${fixture_root}/policy/complytime-ampel-policy.json"
+    mkdir -p "${generated_root}" "$(dirname "${legacy_bundle}")"
+    printf '{"policies":[{"id":"block-force-push"}]}' > "${legacy_bundle}"
+    target_key=$(printf 'url:%s' "${AMPEL_TARGET_URL#*://}" | sha256sum | cut -c1-16)
+
+    printf '{"version":1,"targets":{}}' > "${generated_root}/generate-index.json"
+    failure_count=${FAILED}
+    FOUND_FILE=""
+    if assert_ampel_policy_bundle "${generated_root}" 2>/dev/null; then
+        fail "generate fixture: missing target entry must fail"
+    elif [[ "${FAILED}" -eq $((failure_count + 1)) && -z "${FOUND_FILE}" ]]; then
+        FAILED=${failure_count}
+        pass "generate fixture: missing target entry does not use legacy bundle"
+    else
+        fail "generate fixture: missing target entry did not fail closed"
+    fi
+
+    missing_bundle_key="0123456789abcdef"
+    printf '{"version":1,"targets":{"%s":"%s"}}' "${target_key}" "${missing_bundle_key}" \
+        > "${generated_root}/generate-index.json"
+    failure_count=${FAILED}
+    FOUND_FILE=""
+    if assert_ampel_policy_bundle "${generated_root}" 2>/dev/null; then
+        fail "generate fixture: missing indexed bundle must fail"
+    elif [[ "${FAILED}" -eq $((failure_count + 1)) && -z "${FOUND_FILE}" ]]; then
+        FAILED=${failure_count}
+        pass "generate fixture: missing indexed bundle does not use legacy bundle"
+    else
+        fail "generate fixture: missing indexed bundle did not fail closed"
+    fi
+
+    empty_bundle_key="fedcba9876543210"
+    mkdir -p "${generated_root}/${empty_bundle_key}"
+    : > "${generated_root}/${empty_bundle_key}/complytime-ampel-policy.json"
+    printf '{"version":1,"targets":{"%s":"%s"}}' "${target_key}" "${empty_bundle_key}" \
+        > "${generated_root}/generate-index.json"
+    failure_count=${FAILED}
+    FOUND_FILE=""
+    if assert_ampel_policy_bundle "${generated_root}" 2>/dev/null; then
+        fail "generate fixture: empty indexed bundle must fail"
+    elif [[ "${FAILED}" -eq $((failure_count + 1)) && -z "${FOUND_FILE}" ]]; then
+        FAILED=${failure_count}
+        pass "generate fixture: empty indexed bundle does not use legacy bundle"
+    else
+        fail "generate fixture: empty indexed bundle did not fail closed"
+    fi
+
+    rm -rf "${fixture_root}"
+}
+
 # Sanitize output to prevent GITHUB_TOKEN from appearing in CI logs.
 sanitize_output() {
     if [[ -n "${_GITHUB_TOKEN:-}" ]]; then
@@ -116,6 +221,12 @@ sanitize_output() {
         cat
     fi
 }
+
+if [[ "${COMPLYCTL_CROSS_REPO_INDEX_FIXTURE_TEST:-}" == "1" ]]; then
+    test_indexed_ampel_bundle_failures
+    [[ "${FAILED}" -eq 0 ]]
+    exit
+fi
 
 # --- Prerequisites ---
 
@@ -264,12 +375,10 @@ test_generate() {
     fi
     echo "${out}" | sanitize_output
     assert_contains "generate: completed" "${out}" "Generation completed."
-    assert_file_exists "generate: policy bundle exists" \
-        "${WORK_DIR}/.complytime/ampel/policy/complytime-ampel-policy.json"
-    if [[ -n "${FOUND_FILE}" ]]; then
-        assert_json_contains "generate: bundle contains block-force-push policy" \
-            "${FOUND_FILE}" '.policies[].id' "block-force-push"
-    fi
+    local generated_root="${WORK_DIR}/.complytime/ampel/generated"
+    assert_ampel_policy_bundle "${generated_root}" || return
+    assert_json_contains "generate: bundle contains block-force-push policy" \
+        "${FOUND_FILE}" '.policies[].id' "block-force-push"
 }
 
 # --- test_scan ---
