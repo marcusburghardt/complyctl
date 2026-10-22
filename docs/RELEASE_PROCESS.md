@@ -58,7 +58,7 @@ For the full release process reference, see the [org-infra release process](http
 
 ## Tests
 
-Tests relevant for releases are incorporated in CI tests for every PR. The preflight job verifies that the following CI checks have passed on HEAD before allowing a release: `unit-test`, `e2e-test`, `integration-test`.
+Tests relevant for releases are incorporated in CI tests for every PR. The preflight job verifies that the following CI checks have passed on HEAD before allowing a release: `buf-lint`, `unit-test`, `e2e-test`, `integration-test`.
 
 ## Cadence
 
