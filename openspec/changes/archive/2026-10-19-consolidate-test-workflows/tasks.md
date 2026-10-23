@@ -58,13 +58,16 @@
 
 ## Pre-merge prerequisite
 
-- [ ] Verify current branch protection required status checks
+- [x] Verify current branch protection required status checks
   (Settings → Branches → main → require status checks).
   Document which checks are required and coordinate with
   a repo admin to update them immediately after merge.
   If required checks reference the old names, the admin
   MUST update branch protection within minutes of merge
   to avoid blocking other PRs.
+  **Concluded**: PR #922 merged successfully. Branch
+  protection on `main` has no required status checks
+  configured — no admin update needed.
 
 ## Workflow follow-up
 
