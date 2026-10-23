@@ -85,6 +85,31 @@ The configured digest selects each artifact from the layout without contacting
 the registry.
 If verification is configured, add \f[B]\-\-skip\-verify\f[R]; offline signature
 verification is not yet supported and imported entries remain unverified.
+.SS Offline policy\-cache seeding
+On a disconnected system, \f[CR]complyctl scan\f[R] can use a manually
+seeded policy OCI layout.
+From a directory containing \f[CR]catalog.yaml\f[R] and
+\f[CR]policy.yaml\f[R], use \f[CR]oras\f[R] to write to the cache:
+.IP
+.EX
+oras push \-\-oci\-layout \(rs
+  \(dq${XDG_CACHE_HOME:\-$HOME/.cache}/complytime/policies/acme/policies/baseline:v1.2.3\(dq \(rs
+  catalog.yaml:application/vnd.gemara.catalog.v1+yaml \(rs
+  policy.yaml:application/vnd.gemara.policy.v1+yaml
+.EE
+.PP
+The ORAS destination is an OCI \f[CR]directory:tag\f[R] reference.
+Its repository path after the registry host and its tag MUST match the
+policy URL in \f[CR].complytime/complytime.yaml\f[R].
+Manual seeding does not populate \f[CR]state.json\f[R] or detect later
+manual policy\-layout changes from digest freshness.
+It also does not perform signature verification; use
+\f[CR]complyctl get\f[R] where verification metadata is required.
+A supported import workflow is tracked in \c
+.UR https://github.com/complytime/complyctl/issues/892
+#892
+.UE \c
+\&.
 .SS list
 List cached Gemara policies with their evaluator, control count, digest,
 and verification status.
@@ -413,6 +438,15 @@ Providers in the user directory take precedence.
 Must be an absolute path; a relative path is ignored.
 Default: \f[B]/usr/libexec/complytime/providers\f[R].
 .TP
+\f[B]COMPLYTIME_MACHINE_ID_FILE\f[R]
+Override the path to the machine\-id file used by providers when
+constructing evidence host remarks.
+Default: \f[B]/etc/machine\-id\f[R].
+The file must contain a non\-empty hexadecimal string no larger than 1
+KB.
+If unreadable or invalid, the machine\-id is silently omitted from the
+remarks.
+.TP
 \f[B]NO_COLOR\f[R]
 When set (any non\-empty value), \f[B]complyctl doctor\f[R]
 automatically selects \f[B]text\f[R] format instead of the default
@@ -436,6 +470,67 @@ results remain available.
 .PP
 To gate a pipeline on compliance results, parse the scan output (SARIF,
 OSCAL) with your policy engine rather than relying on the exit code.
+.SH OUTPUT
+.TP
+\f[B]Scan reports\f[R]
+The \f[B]scan\f[R] command writes reports to \f[B].complytime/scan/\f[R]
+in each enabled format.
+Report filenames follow the pattern:
+.RS
+.PP
+\f[I]prefix\f[R]\-\f[I]policy\-id\f[R]\-\f[I]target\-id\f[R]\-\f[I]YYYYMMDD\f[R]\-\f[I]HHMMSS\f[R].\f[I]ext\f[R]
+.RE
+.PP
+When no target ID is present (single\-target scans), the target segment
+is omitted.
+Path separators in policy and target IDs are replaced with dashes.
+.TP
+\f[B]Evidence source provenance\f[R]
+Each evidence entry in the EvaluationLog may include a \f[B]source\f[R]
+block identifying where the data was collected from.
+The source block contains five fields:
+.TP
+\f[I]reference\-id\f[R]
+Names the external system or Gemara artifact the evidence was collected
+from.
+Ties the evidence to a \f[B]mapping\-references\f[R] entry in the
+EvaluationLog metadata.
+.TP
+\f[I]coordinate\f[R]
+Precise location within the referenced system (API path, file path, JSON
+path).
+Mutually exclusive with \f[B]entry\-id\f[R].
+.TP
+\f[I]entry\-id\f[R]
+Specific entry within a referenced Gemara artifact.
+Mutually exclusive with \f[B]coordinate\f[R].
+.TP
+\f[I]digest\f[R]
+Cryptographic hash of the observed content at collection time.
+Format: \f[I]algorithm\f[R]:\f[I]encoded\f[R] (e.g.,
+sha256:abc123\&...).
+.TP
+\f[I]remarks\f[R]
+Provider prose about collection context, host identification, or
+caveats.
+For providers that support it, the standard format is \f[B]Collected on
+host \(lqhostname\(rq (machine\-id: hexstring)\f[R], where the
+machine\-id is read from \f[B]/etc/machine\-id\f[R] (overridable via
+\f[B]COMPLYTIME_MACHINE_ID_FILE\f[R]).
+.PP
+In the Markdown report (\f[B]\(enformat pretty\f[R]), evidence source is
+rendered as \f[B]source:\f[R] \f[I]reference\-id\f[R] **\(at**
+\f[I]coordinate\f[R].
+The full set of five fields is available in EvaluationLog YAML/JSON
+output.
+Evidence source requires provider support; when absent, the source block
+is omitted.
+.PP
+For a detailed walkthrough and field reference, see the Evidence Source
+Provenance documentation at \c
+.UR https://github.com/complytime/complyctl/blob/main/docs/EVIDENCE.md
+.UE \c
+\&.
 .SH FILES
 .TP
 \f[B]\(ti/.cache/complytime/policies/\f[R]
@@ -463,6 +558,9 @@ See the \f[B]CONFIGURATION\f[R] section for the full schema reference.
 .TP
 \f[B].complytime/scan/\f[R]
 Scan output reports (EvaluationLog, OSCAL, SARIF, Markdown).
+Filenames follow the pattern
+\f[I]prefix\f[R]\-\f[I]policy\-id\f[R]\-\f[I]target\-id\f[R]\-\f[I]YYYYMMDD\f[R]\-\f[I]HHMMSS\f[R].\f[I]ext\f[R]
+(e.g., \f[B]evaluation\-log\-pol\-v1\-web\-20260729\-143012.yaml\f[R]).
 .TP
 \f[B].complytime/complyctl.log\f[R]
 Debug log file (created when \f[B]\(endebug\f[R] is used).
