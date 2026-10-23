@@ -13,6 +13,11 @@
 - [x] 3.1 Run `make test-schema-validation` against existing scan output (or confirm the script parses the updated module reference correctly with `bash -n tests/schema-validation/validate.sh`). Verify: script syntax check passes with exit code 0.
 - [x] 3.2 Run `openspec validate --change fix-gemara-cue-schema-pin` and confirm no validation errors. Verify: exit code 0.
 
+## 4. Extend Renovate tracking to tool version pins (PR #926)
+
+- [x] 4.1 Add second custom regex manager (`tool-versions`) to `renovate.json` matching inline `# renovate:` annotations in CI workflows and devcontainer scripts. `currentValue` capture group MUST exclude `v` prefix to match Gemara CUE pattern.
+- [x] 4.2 Pin explicit versions for snappy (v0.2.6), ampel (v1.4.2), conftest (v0.68.2), and cue (v0.17.1) in `ci_cross_repo_integration.yml` and `.devcontainer/scripts/post-create.sh` with inline Renovate annotations.
+
 ## Workflow follow-up
 
 - Archive the change after the project's review requirements are satisfied.

@@ -21,6 +21,10 @@ Fixes: https://github.com/complytime/complyctl/issues/924
   regex manager to track the `GEMARA_CUE_MODULE` version in `validate.sh`
   against `gemaraproj/gemara` GitHub releases, so future schema releases
   automatically open update PRs
+- **Extend Renovate tracking to external tool version pins** (snappy, ampel,
+  conftest, cue) in CI workflows and devcontainer scripts via a second custom
+  regex manager in `renovate.json` that matches inline `# renovate:` annotations
+  (PR #926)
 
 ## Capabilities
 
@@ -41,5 +45,7 @@ _None. No spec-level behavior changes. `skip_specs: true` is set._
   current Gemara CUE schema instead of a stale pin
 - **Dependencies**: New `renovate.json` in repo root adds Renovate custom
   manager config; interacts with the org-wide Renovate runner in
-  `org-infra/ci_renovate.yml` which already auto-discovers `complytime/*` repos
+  `org-infra/ci_renovate.yml` which already auto-discovers `complytime/*` repos;
+  tool-versions manager tracks snappy, ampel, conftest, and cue pins across
+  CI workflows and devcontainer scripts
 - **No code changes**: No Go source, protobuf, or runtime behavior affected
