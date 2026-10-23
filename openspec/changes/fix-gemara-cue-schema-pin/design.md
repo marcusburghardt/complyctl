@@ -89,6 +89,24 @@ datasource.
 the standard Renovate datasource for GitHub projects and requires no special
 registry configuration.
 
+### 5. Extend tracking to external tool version pins (PR #926)
+
+**Choice**: Add a second custom regex manager (`tool-versions`) in
+`renovate.json` that matches inline `# renovate:` annotations in CI
+workflows and devcontainer scripts, tracking snappy, ampel, conftest,
+and cue against their respective GitHub releases.
+
+**Rationale**: The same class of failure (stale version pins causing CI
+breakage) applies to all external tool dependencies, not just the Gemara
+CUE schema. Annotating version pins with `# renovate: datasource=...
+depName=...` is a standard Renovate pattern that enables automatic
+upgrade PRs. This extends the automation established in decision 2.
+
+**Implementation note**: The `currentValue` capture group MUST exclude
+the `v` prefix (i.e., `v(?<currentValue>...)`) so that
+`extractVersionTemplate` produces consistent formats for comparison and
+replacement. This matches the Gemara CUE manager pattern.
+
 ## Risks / Trade-offs
 
 - **[Repo overrides org `enabledManagers`]** -> The repo config lists its own

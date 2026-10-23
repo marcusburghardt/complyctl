@@ -2,20 +2,33 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
     "enabledManagers overrides the org preset (gomod-only) to add",
-    "a custom regex manager that tracks the Gemara CUE schema",
-    "version in tests/schema-validation/validate.sh."
+    "custom regex managers that track the Gemara CUE schema version",
+    "and external tool version pins (snappy, ampel, conftest, cue)",
+    "in CI workflows and devcontainer scripts."
   ],
-  "enabledManagers": ["gomod", "custom.gemara-cue"],
+  "enabledManagers": ["gomod", "custom.regex"],
   "customManagers": [
     {
       "customType": "regex",
-      "managerName": "gemara-cue",
+      "description": "Track Gemara CUE schema version in validate.sh",
       "fileMatch": ["^tests/schema-validation/validate\\.sh$"],
       "matchStrings": [
         "GEMARA_CUE_MODULE=\"\\$\\{GEMARA_CUE_MODULE:-github\\.com/gemaraproj/gemara@v(?<currentValue>[^\"]+)\\}\""
       ],
       "depNameTemplate": "gemaraproj/gemara",
       "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track tool version pins annotated with inline renovate comments",
+      "fileMatch": [
+        "^\\.github/workflows/.*\\.yml$",
+        "^\\.devcontainer/scripts/post-create\\.sh$"
+      ],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>[^\\s]+)\\n[^\\n]*?v(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+      ],
       "extractVersionTemplate": "^v(?<version>.*)$"
     }
   ]
