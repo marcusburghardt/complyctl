@@ -27,7 +27,7 @@
         "^\\.devcontainer/scripts/post-create\\.sh$"
       ],
       "matchStrings": [
-        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>[^\\s]+)\\n[^\\n]*?(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+)\\s+depName=(?<depName>[^\\s]+)\\n[^\\n]*?v(?<currentValue>\\d+\\.\\d+\\.\\d+)"
       ],
       "extractVersionTemplate": "^v(?<version>.*)$"
     }
