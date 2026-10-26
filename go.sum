@@ -109,8 +109,8 @@ github.com/danieljoos/wincred v1.2.2 h1:774zMFJrqaeYCK2W57BgAem/MLi6mtSE47MB6BOJ
 github.com/danieljoos/wincred v1.2.2/go.mod h1:w7w4Utbrz8lqeMbDAK0lkNJUv5sAOkFi7nd/ogr0Uh8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/defenseunicorns/go-oscal v0.7.1 h1:L2kUisuGU5q2GbWvhxPQpNTZtOELpqc/tpd2hgE5gck=
-github.com/defenseunicorns/go-oscal v0.7.1/go.mod h1:2VGbt7jOZ8VfcmWg7Mg9m9NKpLtl/LXAqTWDzcH0qms=
+github.com/defenseunicorns/go-oscal v0.7.2 h1:nsokNYpDAopub3R0QQOKQuH28jfm62iA4NPy68bIQFA=
+github.com/defenseunicorns/go-oscal v0.7.2/go.mod h1:2VGbt7jOZ8VfcmWg7Mg9m9NKpLtl/LXAqTWDzcH0qms=
 github.com/digitorus/pkcs7 v0.0.0-20230713084857-e76b763bdc49/go.mod h1:SKVExuS+vpu2l9IoOc0RwqE7NYnb0JlcFHFnEJkVDzc=
 github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 h1:ge14PCmCvPjpMQMIAH7uKg0lrtNSOdpYsRXlwk3QbaE=
 github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352/go.mod h1:SKVExuS+vpu2l9IoOc0RwqE7NYnb0JlcFHFnEJkVDzc=
